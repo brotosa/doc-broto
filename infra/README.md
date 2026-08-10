@@ -10,6 +10,32 @@ A imagem Docker (Next.js + LibreOffice + qpdf + ghostscript + tesseract + Chromi
 - Node.js 22 e Docker instalados localmente (o CDK constrói a imagem no deploy).
 - CDK bootstrap na conta/região (uma vez): `npx cdk bootstrap`.
 
+## Setup do zero (recomendado) — script automático
+
+Se você ainda **não tem nada configurado na AWS** e já usa o AWS CLI no seu
+terminal, rode o script turnkey (cria provedor OIDC + role de deploy + bootstrap):
+
+```bash
+./infra/aws-setup.sh sa-east-1 brotosa/doc-broto
+```
+
+Ao final, ele imprime os **2 valores** para você cadastrar no GitHub
+(Settings → Secrets and variables → Actions):
+
+- **Secret** `AWS_DEPLOY_ROLE_ARN`
+- **Variable** `AWS_REGION`
+
+Depois, re-execute o workflow **"Deploy (produção)"** (ou dê um push na `main`).
+A imagem Docker é construída no runner do GitHub — **não precisa de Docker local**.
+
+> Se você tiver o GitHub CLI (`gh`) autenticado, rode com `--set-github` que o
+> script já cadastra o secret/variable e dispara o deploy:
+> `./infra/aws-setup.sh sa-east-1 brotosa/doc-broto --set-github`
+
+A role usa permissão mínima (`sts:AssumeRole` nas roles do CDK bootstrap). Se
+algum recurso exigir mais permissão no primeiro deploy, amplie a policy inline
+`broto-pdf-cdk-deploy` da role `broto-pdf-github-deploy`.
+
 ## Deploy manual
 
 ```bash
