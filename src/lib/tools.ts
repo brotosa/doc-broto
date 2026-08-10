@@ -129,7 +129,7 @@ export const TOOLS: Tool[] = [
     category: "editar",
     color: "bg-brand-green text-white",
     glyph: "✎",
-    ready: false,
+    ready: true,
   },
   {
     slug: "pdf-para-jpg",
@@ -257,7 +257,7 @@ export const TOOLS: Tool[] = [
     category: "organizar",
     color: "bg-brand text-white",
     glyph: "📷",
-    ready: false,
+    ready: true,
   },
   {
     slug: "ocr-pdf",
@@ -277,7 +277,7 @@ export const TOOLS: Tool[] = [
     category: "editar",
     color: "bg-brand-green text-white",
     glyph: "⇄",
-    ready: false,
+    ready: true,
   },
   {
     slug: "ocultar-pdf",
@@ -307,7 +307,7 @@ export const TOOLS: Tool[] = [
     category: "editar",
     color: "bg-brand-green text-white",
     glyph: "AБ",
-    ready: false,
+    ready: true,
     isNew: true,
   },
   {
