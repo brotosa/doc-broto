@@ -3,9 +3,9 @@ import "./globals.css";
 import { Header } from "@/components/Header";
 
 export const metadata: Metadata = {
-  title: "Doc Broto — Ferramentas de PDF online",
+  title: "Broto — Ferramentas de PDF",
   description:
-    "Todas as ferramentas de que você precisa para trabalhar com PDFs, num só lugar. Juntar, dividir, comprimir, converter, girar, marca d'água e muito mais.",
+    "Todas as ferramentas de PDF do Broto, num só lugar. Juntar, dividir, comprimir, converter, proteger, OCR, IA e muito mais.",
 };
 
 export default function RootLayout({
@@ -19,7 +19,7 @@ export default function RootLayout({
         <Header />
         <main className="mx-auto max-w-7xl px-4 py-8">{children}</main>
         <footer className="mx-auto max-w-7xl px-4 py-10 text-center text-sm text-gray-400">
-          Doc Broto © {new Date().getFullYear()} — Ferramentas de PDF para a sua empresa.
+          Broto © {new Date().getFullYear()} — Seu jeito digital de fazer agro.
         </footer>
       </body>
     </html>

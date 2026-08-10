@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --bg: #fafafb;
+  --bg: #ffffff;
+  --ink: #282313;
 }
 
 html,
@@ -11,7 +12,8 @@ body {
   padding: 0;
   margin: 0;
   background: var(--bg);
-  color: #1a1a2e;
+  color: var(--ink);
+  font-family: "Gordita", Verdana, Geneva, sans-serif;
 }
 
 * {
