@@ -1,0 +1,23 @@
+{
+  "name": "broto-pdf-infra",
+  "version": "0.1.0",
+  "private": true,
+  "bin": { "broto-pdf-infra": "bin/app.js" },
+  "scripts": {
+    "build": "tsc",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy --require-approval never",
+    "diff": "cdk diff",
+    "destroy": "cdk destroy"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.7",
+    "aws-cdk": "2.174.0",
+    "ts-node": "10.9.2",
+    "typescript": "5.7.3"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.174.0",
+    "constructs": "10.4.2"
+  }
+}

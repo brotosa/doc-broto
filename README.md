@@ -1,59 +1,76 @@
-# Doc Broto — Ferramentas de PDF
+# Broto — Ferramentas de PDF
 
-Suíte de ferramentas de PDF no estilo iLovePDF, para uso interno da empresa.
-Construída com **Next.js 15 (App Router)**, **TypeScript** e **Tailwind CSS**.
+Suíte de ferramentas de PDF no estilo iLovePDF, com a **identidade visual do Broto**
+(ver `brand/BRAND.md`). Construída com **Next.js 16 (App Router)**, **TypeScript** e
+**Tailwind CSS**, numa única aplicação conteinerizada que reúne frontend e backend de
+processamento de documentos.
 
-O processamento acontece **no navegador** (client-side) sempre que possível,
-usando `pdf-lib` e `pdf.js`. Isso garante privacidade (os arquivos não saem do
-dispositivo do usuário) e reduz custo de servidor.
+- **Client-side** (no navegador, via `pdf-lib` + `pdf.js`): operações rápidas e privadas.
+- **Server-side** (API routes que executam binários): conversões Office, OCR, proteção,
+  compressão de alta qualidade, HTML→PDF e IA.
 
-## Ferramentas já funcionais
+## Ferramentas
 
-| Ferramenta            | Descrição                                                  |
-| --------------------- | ---------------------------------------------------------- |
-| Juntar PDF            | Mescla vários PDFs, com reordenação                        |
-| Dividir PDF           | Extrai intervalo de páginas ou separa cada página (ZIP)    |
-| Comprimir PDF         | Reduz o tamanho (rasterização com níveis de qualidade)     |
-| Rodar PDF             | Gira páginas em 90/180/270°                                 |
-| Organizar PDF         | Reordena e exclui páginas com miniaturas                    |
-| Números de página     | Adiciona numeração com posição e tamanho configuráveis      |
-| Marca d'água          | Texto com transparência, tamanho e rotação                  |
-| JPG para PDF          | Converte imagens JPG/PNG em PDF                              |
-| PDF para JPG          | Exporta páginas como JPG (ZIP quando múltiplas)             |
+### No navegador (sem servidor)
+Juntar · Dividir · Comprimir (rasterização) · Rodar · Organizar (miniaturas) ·
+Números de página · Marca d'água · JPG→PDF · PDF→JPG · Recortar · Assinar (desenho) ·
+Ocultar/redação (rasteriza a página, destruindo o conteúdo sob a tarja).
 
-As demais ferramentas aparecem na grade marcadas como **"Em breve"** —
-a arquitetura está pronta para recebê-las.
+### No servidor (`src/lib/server/` + `src/app/api/`)
+| Ferramenta | Motor |
+| --- | --- |
+| Word/PowerPoint/Excel → PDF | LibreOffice (`soffice`) |
+| PDF → Word/Excel/PowerPoint | LibreOffice (`writer_pdf_import`) — fidelidade best-effort |
+| Comprimir (texto preservado) | Ghostscript |
+| Proteger / Desbloquear (senha) | qpdf |
+| OCR (PDF pesquisável) | ocrmypdf / Tesseract (por+eng) |
+| PDF → PDF/A | Ghostscript |
+| Reparar PDF | qpdf / Ghostscript |
+| HTML → PDF | Chromium (Playwright) |
+| Resumir · Traduzir · PDF → Markdown | API da Anthropic (`claude-opus-5`) + `pdftotext` |
+
+As ferramentas de IA exigem `ANTHROPIC_API_KEY`; sem ela, retornam um aviso claro e as
+demais continuam funcionando.
 
 ## Rodar localmente
 
 ```bash
 npm install
-npm run dev       # http://localhost:3000
-npm run build     # build de produção
+npm run dev            # http://localhost:3000
 ```
 
-## Próximas etapas (roadmap)
+As ferramentas de servidor exigem os binários: `libreoffice`, `qpdf`, `ghostscript`,
+`poppler-utils`, `tesseract`/`ocrmypdf` e `chromium`. A forma mais simples é usar Docker:
 
-Ferramentas que exigem processamento no servidor (backend a implementar):
-
-- **Conversões Office** (Word/Excel/PowerPoint ↔ PDF): via LibreOffice headless
-  em um serviço backend (ex.: container em AWS ECS/Fargate ou função em
-  AWS Lambda com layer do LibreOffice).
-- **OCR / PDF pesquisável**: Tesseract ou serviço de OCR.
-- **Proteger / Desbloquear PDF**: `pdf-lib` não cifra; usar `qpdf` no backend.
-- **IA (Resumir, Traduzir, PDF → Markdown)**: via API da Claude/Anthropic.
-- **HTML para PDF**: renderização headless (Playwright/Puppeteer) no backend.
+```bash
+docker compose up --build       # instala tudo na imagem
+```
 
 ## Arquitetura
 
-- `src/lib/tools.ts` — registro único de ferramentas (dirige a grade da home).
-  Para ativar uma ferramenta nova, marque `ready: true` e crie a página em
-  `src/app/<slug>/page.tsx`.
-- `src/components/` — UI compartilhada (grade, cards, dropzone, layout).
-- `src/lib/` — utilitários (download, pdf.js, parsing de intervalos de página).
+```
+src/
+  app/                 # páginas (uma por ferramenta) + api/ (rotas de backend)
+  components/          # UI (grade, cards, dropzone, BackendTool, Logo Broto)
+  lib/                 # utilitários client-side + registro de ferramentas (tools.ts)
+  lib/server/          # execução de binários (exec, pdf-ops, browser, ai) — isolável em worker
+brand/                 # guia de marca + tokens aplicados (BRAND.md)
+infra/                 # AWS CDK (VPC + ECS Fargate + ALB)
+Dockerfile             # imagem única (Next.js + binários)
+.github/workflows/     # CI (PRs) e Deploy de produção (main)
+```
 
-## Deploy
+Adicionar uma ferramenta nova: marque `ready: true` em `src/lib/tools.ts` e crie
+`src/app/<slug>/page.tsx` (client-side) ou uma rota em `src/app/api/` + página com
+`<BackendTool>`.
 
-O frontend é estático/SSR e roda em qualquer plataforma Next.js (Vercel, ou
-AWS Amplify). O backend de conversões (LibreOffice/OCR/IA) deve ser um serviço
-separado — recomendado AWS ECS/Fargate ou Lambda — consumido via API routes.
+## Deploy na AWS
+
+Produção = branch **`main`**. Ver `infra/README.md` para o passo a passo (CDK) e o
+workflow `.github/workflows/deploy.yml` (deploy automático a cada push em `main`).
+Resumo: `cd infra && npm install && npx cdk bootstrap && npm run deploy`.
+
+## Marca
+
+Cores, tipografia (Gordita/Verdana) e logo seguem `brand/BRAND.md`, derivado do
+`brand/GuiaDeMarca-Broto-2022.pdf`.

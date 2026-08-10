@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+brand/*.pdf
+npm-debug.log*
+Dockerfile
+.dockerignore
+infra/cdk.out
+infra/node_modules
+*.md
+.env*

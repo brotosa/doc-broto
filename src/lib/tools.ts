@@ -37,7 +37,7 @@ export const TOOLS: Tool[] = [
     description:
       "Mesclar e juntar PDFs e colocá-los em qualquer ordem que desejar. É tudo muito fácil e rápido!",
     category: "organizar",
-    color: "bg-red-500",
+    color: "bg-brand text-white",
     glyph: "⇲",
     ready: true,
   },
@@ -47,7 +47,7 @@ export const TOOLS: Tool[] = [
     description:
       "Selecione um intervalo de páginas, separe uma página, ou converta cada página do documento em arquivo PDF independente.",
     category: "organizar",
-    color: "bg-red-500",
+    color: "bg-brand text-white",
     glyph: "⇱",
     ready: true,
   },
@@ -57,7 +57,7 @@ export const TOOLS: Tool[] = [
     description:
       "Diminua o tamanho do seu arquivo PDF, mantendo a melhor qualidade possível. Otimize seus arquivos PDF.",
     category: "otimizar",
-    color: "bg-green-500",
+    color: "bg-brand-green text-white",
     glyph: "⇉",
     ready: true,
   },
@@ -67,9 +67,9 @@ export const TOOLS: Tool[] = [
     description:
       "Converta facilmente seus ficheiros PDF para documentos WORD DOCX simples de editar.",
     category: "converter",
-    color: "bg-blue-500",
+    color: "bg-brand text-white",
     glyph: "W",
-    ready: false,
+    ready: true,
   },
   {
     slug: "pdf-para-powerpoint",
@@ -77,9 +77,9 @@ export const TOOLS: Tool[] = [
     description:
       "Converta seus ficheiros PDF para apresentações POWERPOINT PPTX fáceis de editar.",
     category: "converter",
-    color: "bg-orange-500",
+    color: "bg-brand text-white",
     glyph: "P",
-    ready: false,
+    ready: true,
   },
   {
     slug: "pdf-para-excel",
@@ -87,9 +87,9 @@ export const TOOLS: Tool[] = [
     description:
       "Retire dados direto de PDFs para planilhas do Excel em poucos segundos.",
     category: "converter",
-    color: "bg-green-600",
+    color: "bg-brand text-white",
     glyph: "X",
-    ready: false,
+    ready: true,
   },
   {
     slug: "word-para-pdf",
@@ -97,9 +97,9 @@ export const TOOLS: Tool[] = [
     description:
       "Converta seus documentos WORD para PDF com a máxima qualidade e exatamente igual que o arquivo DOC ou DOCX original.",
     category: "converter",
-    color: "bg-blue-500",
+    color: "bg-brand text-white",
     glyph: "W",
-    ready: false,
+    ready: true,
   },
   {
     slug: "powerpoint-para-pdf",
@@ -107,9 +107,9 @@ export const TOOLS: Tool[] = [
     description:
       "Converta suas apresentações POWERPOINT para PDF com a máxima qualidade e exatamente igual ao arquivo PPT ou PPTX original.",
     category: "converter",
-    color: "bg-orange-500",
+    color: "bg-brand text-white",
     glyph: "P",
-    ready: false,
+    ready: true,
   },
   {
     slug: "excel-para-pdf",
@@ -117,9 +117,9 @@ export const TOOLS: Tool[] = [
     description:
       "Converta suas tabelas EXCEL para PDF com as colunas ajustadas à largura da página. Vertical ou horizontal, você escolhe a orientação.",
     category: "converter",
-    color: "bg-green-600",
+    color: "bg-brand text-white",
     glyph: "X",
-    ready: false,
+    ready: true,
   },
   {
     slug: "editar-pdf",
@@ -127,7 +127,7 @@ export const TOOLS: Tool[] = [
     description:
       "Adicione texto, imagens, formas ou anotações livres a um documento PDF. Edite a dimensão, fonte e cor do conteúdo adicionado.",
     category: "editar",
-    color: "bg-purple-500",
+    color: "bg-brand-green text-white",
     glyph: "✎",
     ready: false,
   },
@@ -137,7 +137,7 @@ export const TOOLS: Tool[] = [
     description:
       "Extraia todas as imagens contidas em um arquivo PDF ou converta cada página em um arquivo JPG.",
     category: "converter",
-    color: "bg-yellow-500",
+    color: "bg-brand text-white",
     glyph: "⇱",
     ready: true,
   },
@@ -147,7 +147,7 @@ export const TOOLS: Tool[] = [
     description:
       "Converta suas imagens JPG para PDF. Ajuste a orientação e as margens.",
     category: "converter",
-    color: "bg-yellow-500",
+    color: "bg-brand text-white",
     glyph: "JPG",
     ready: true,
   },
@@ -156,9 +156,9 @@ export const TOOLS: Tool[] = [
     title: "Assinar PDF",
     description: "Assine você mesmo ou solicite assinaturas eletrônicas de outros.",
     category: "seguranca",
-    color: "bg-blue-600",
+    color: "bg-brand-ink text-white",
     glyph: "✒",
-    ready: false,
+    ready: true,
   },
   {
     slug: "marca-dagua",
@@ -166,7 +166,7 @@ export const TOOLS: Tool[] = [
     description:
       "Escolha uma imagem ou texto para inserir sobre o seu PDF. Selecione a posição, transparência e tipografia.",
     category: "editar",
-    color: "bg-purple-500",
+    color: "bg-brand-green text-white",
     glyph: "❖",
     ready: true,
   },
@@ -175,7 +175,7 @@ export const TOOLS: Tool[] = [
     title: "Rodar PDF",
     description: "Gire o PDF que quiser. Gire vários arquivos PDF de uma só vez!",
     category: "organizar",
-    color: "bg-purple-500",
+    color: "bg-brand text-white",
     glyph: "↻",
     ready: true,
   },
@@ -185,9 +185,9 @@ export const TOOLS: Tool[] = [
     description:
       "Converta páginas Web em HTML para PDF. Copie e cole o URL da página que você quer e a converta em um PDF com um clique.",
     category: "converter",
-    color: "bg-yellow-600",
+    color: "bg-brand text-white",
     glyph: "&lt;/&gt;",
-    ready: false,
+    ready: true,
   },
   {
     slug: "desbloquear-pdf",
@@ -195,9 +195,9 @@ export const TOOLS: Tool[] = [
     description:
       "Remova a senha de segurança dos PDF, assim você pode usá-los como quiser.",
     category: "seguranca",
-    color: "bg-blue-600",
+    color: "bg-brand-ink text-white",
     glyph: "🔓",
-    ready: false,
+    ready: true,
   },
   {
     slug: "proteger-pdf",
@@ -205,9 +205,9 @@ export const TOOLS: Tool[] = [
     description:
       "Proteja arquivos PDF com uma senha. Encripte documentos PDF para impedir o acesso não autorizado.",
     category: "seguranca",
-    color: "bg-blue-600",
+    color: "bg-brand-ink text-white",
     glyph: "🔒",
-    ready: false,
+    ready: true,
   },
   {
     slug: "organizar-pdf",
@@ -215,7 +215,7 @@ export const TOOLS: Tool[] = [
     description:
       "Ordene as páginas de seu arquivo PDF como pretender. Exclua ou adicione páginas PDF ao seu documento como lhe for mais conveniente.",
     category: "organizar",
-    color: "bg-red-500",
+    color: "bg-brand text-white",
     glyph: "⇅",
     ready: true,
   },
@@ -225,9 +225,9 @@ export const TOOLS: Tool[] = [
     description:
       "Transforme seu PDF em PDF/A, a versão de PDF em conformidade com os standards ISO para arquivo de longa duração.",
     category: "converter",
-    color: "bg-blue-500",
+    color: "bg-brand text-white",
     glyph: "/A",
-    ready: false,
+    ready: true,
   },
   {
     slug: "reparar-pdf",
@@ -235,9 +235,9 @@ export const TOOLS: Tool[] = [
     description:
       "Reparar um PDF danificado e recuperar dados de PDF corrompido. Repare arquivos PDF com a nossa ferramenta de Reparo.",
     category: "otimizar",
-    color: "bg-green-500",
+    color: "bg-brand-green text-white",
     glyph: "🛠",
-    ready: false,
+    ready: true,
   },
   {
     slug: "numeros-de-pagina",
@@ -245,7 +245,7 @@ export const TOOLS: Tool[] = [
     description:
       "Adicione números de página em documentos PDF facilmente. Escolha posição, dimensões, formato e tipografia!",
     category: "editar",
-    color: "bg-purple-500",
+    color: "bg-brand-green text-white",
     glyph: "#",
     ready: true,
   },
@@ -255,7 +255,7 @@ export const TOOLS: Tool[] = [
     description:
       "Capture digitalizações de documentos a partir do seu dispositivo móvel e envie-os instantaneamente para o seu navegador.",
     category: "organizar",
-    color: "bg-red-500",
+    color: "bg-brand text-white",
     glyph: "📷",
     ready: false,
   },
@@ -265,9 +265,9 @@ export const TOOLS: Tool[] = [
     description:
       "Converta facilmente um PDF escaneado em documentos selecionáveis e pesquisáveis.",
     category: "intelligence",
-    color: "bg-green-600",
+    color: "bg-brand-yellow text-brand-ink",
     glyph: "OCR",
-    ready: false,
+    ready: true,
   },
   {
     slug: "comparar-pdf",
@@ -275,7 +275,7 @@ export const TOOLS: Tool[] = [
     description:
       "Mostre uma comparação de documentos lado a lado e identifique facilmente as alterações entre diferentes versões de arquivos.",
     category: "editar",
-    color: "bg-blue-600",
+    color: "bg-brand-green text-white",
     glyph: "⇄",
     ready: false,
   },
@@ -285,9 +285,9 @@ export const TOOLS: Tool[] = [
     description:
       "Oculte texto e gráficos para remover permanentemente informações sensíveis de um PDF.",
     category: "seguranca",
-    color: "bg-blue-600",
+    color: "bg-brand-ink text-white",
     glyph: "▧",
-    ready: false,
+    ready: true,
   },
   {
     slug: "recortar-pdf",
@@ -295,9 +295,9 @@ export const TOOLS: Tool[] = [
     description:
       "Recorte as margens de documentos PDF ou selecione áreas específicas e depois aplique as alterações a uma página ou a todo o documento.",
     category: "editar",
-    color: "bg-purple-500",
+    color: "bg-brand-green text-white",
     glyph: "⌗",
-    ready: false,
+    ready: true,
   },
   {
     slug: "formularios-pdf",
@@ -305,7 +305,7 @@ export const TOOLS: Tool[] = [
     description:
       "Detecte campos de formulário automaticamente, crie PDFs preenchíveis interativos ou preencha formulários em PDF manualmente.",
     category: "editar",
-    color: "bg-purple-600",
+    color: "bg-brand-green text-white",
     glyph: "AБ",
     ready: false,
     isNew: true,
@@ -316,9 +316,9 @@ export const TOOLS: Tool[] = [
     description:
       "Gere rapidamente resumos concisos de artigos, parágrafos e ensaios, fornecendo pontos-chave claros e precisos em segundos.",
     category: "intelligence",
-    color: "bg-purple-600",
+    color: "bg-brand-yellow text-brand-ink",
     glyph: "✦",
-    ready: false,
+    ready: true,
     isNew: true,
   },
   {
@@ -327,9 +327,9 @@ export const TOOLS: Tool[] = [
     description:
       "Traduza facilmente arquivos PDF com IA. Mantenha as fontes, o layout e a formatação perfeitamente intactos.",
     category: "intelligence",
-    color: "bg-purple-600",
+    color: "bg-brand-yellow text-brand-ink",
     glyph: "文A",
-    ready: false,
+    ready: true,
     isNew: true,
   },
   {
@@ -338,9 +338,9 @@ export const TOOLS: Tool[] = [
     description:
       "Converta facilmente PDFs em arquivos Markdown. Perfeito para anotações, documentos e LLMs. Títulos, tabelas, listas e links são preservados automaticamente.",
     category: "intelligence",
-    color: "bg-purple-600",
+    color: "bg-brand-yellow text-brand-ink",
     glyph: "{#}",
-    ready: false,
+    ready: true,
     isNew: true,
   },
 ];

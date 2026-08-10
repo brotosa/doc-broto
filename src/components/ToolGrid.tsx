@@ -31,8 +31,8 @@ export function ToolGrid() {
             className={clsx(
               "rounded-full px-4 py-1.5 text-sm font-medium transition",
               filter === f.key
-                ? "bg-gray-900 text-white"
-                : "bg-white text-gray-600 hover:bg-gray-100"
+                ? "bg-brand text-white"
+                : "bg-white text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50"
             )}
           >
             {f.label}

@@ -6,14 +6,14 @@ export function ToolCard({ tool }: { tool: Tool }) {
   const card = (
     <div
       className={clsx(
-        "group relative flex h-full flex-col rounded-xl border border-gray-200 bg-white p-5 transition",
+        "group relative flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-5 transition",
         tool.ready
           ? "hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-lg"
           : "opacity-70"
       )}
     >
       {tool.isNew && (
-        <span className="absolute right-3 top-3 rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-600">
+        <span className="absolute right-3 top-3 rounded-md bg-brand-green px-2 py-0.5 text-xs font-semibold text-white">
           Novo!
         </span>
       )}
@@ -24,7 +24,7 @@ export function ToolCard({ tool }: { tool: Tool }) {
       )}
       <div
         className={clsx(
-          "mb-4 grid h-11 w-11 place-items-center rounded-lg text-lg font-bold text-white",
+          "mb-4 grid h-11 w-11 place-items-center rounded-xl text-lg font-bold",
           tool.color
         )}
         dangerouslySetInnerHTML={{ __html: tool.glyph }}
