@@ -13,7 +13,9 @@ export async function setSessionCookie(user: SessionUser): Promise<void> {
   const token = await signSession(user);
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    // Só marca Secure quando o site é servido por HTTPS (COOKIE_SECURE=true).
+    // Em HTTP puro (acesso por IP), Secure faria o navegador descartar o cookie.
+    secure: process.env.COOKIE_SECURE === "true",
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_MAX_AGE,

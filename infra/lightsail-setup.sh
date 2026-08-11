@@ -49,6 +49,9 @@ ANTHROPIC_API_KEY=
 # Opcional: subdomínio para HTTPS automático (ex.: pdf.suaempresa.com.br).
 # Deixe em branco para servir em HTTP pelo IP. Ao preencher, rode o compose de novo.
 DOMAIN=
+# Marque true APENAS quando servir por HTTPS (com DOMAIN). Em HTTP puro deixe false,
+# senão o navegador descarta o cookie de sessão e o login não "gruda".
+COOKIE_SECURE=false
 EOF
   echo ""
   echo "   ****************************************************************"
@@ -64,7 +67,7 @@ fi
 echo "==> 4/4 Build e subida (primeira vez demora ~8-15 min)"
 sudo docker compose -f docker-compose.prod.yml up -d --build
 
-IP="$(curl -s --max-time 5 ifconfig.me || echo 'SEU_IP_PUBLICO')"
+IP="$(curl -4 -s --max-time 5 ifconfig.me || echo 'SEU_IP_PUBLICO')"
 DOMAIN_SET="$(grep -E '^DOMAIN=.+' .env || true)"
 echo ""
 echo "======================================================================"
@@ -77,7 +80,7 @@ else
   echo " Para HTTPS com domínio (Route 53):"
   echo "   1. Aponte um registro A do subdomínio para ${IP} (use IP estático!)."
   echo "   2. Abra a porta 443 no firewall do Lightsail."
-  echo "   3. Preencha DOMAIN=seu.subdominio no .env e rode:"
+  echo "   3. No .env: preencha DOMAIN=seu.subdominio e troque COOKIE_SECURE=true, e rode:"
   echo "        sudo docker compose -f docker-compose.prod.yml up -d"
 fi
 echo " Entre com usuário 'admin' e a senha mostrada acima."
