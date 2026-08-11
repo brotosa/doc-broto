@@ -46,6 +46,9 @@ ADMIN_PASSWORD=${ADMIN_PW}
 ADMIN_NAME=Administrador
 # Opcional: chave da IA (Resumir/Traduzir/PDF->Markdown). Deixe em branco para desativar.
 ANTHROPIC_API_KEY=
+# Opcional: subdomínio para HTTPS automático (ex.: pdf.suaempresa.com.br).
+# Deixe em branco para servir em HTTP pelo IP. Ao preencher, rode o compose de novo.
+DOMAIN=
 EOF
   echo ""
   echo "   ****************************************************************"
@@ -62,13 +65,25 @@ echo "==> 4/4 Build e subida (primeira vez demora ~8-15 min)"
 sudo docker compose -f docker-compose.prod.yml up -d --build
 
 IP="$(curl -s --max-time 5 ifconfig.me || echo 'SEU_IP_PUBLICO')"
+DOMAIN_SET="$(grep -E '^DOMAIN=.+' .env || true)"
 echo ""
 echo "======================================================================"
-echo " Pronto! Acesse:  http://${IP}"
+if [ -n "$DOMAIN_SET" ]; then
+  echo " Pronto! Acesse:  https://${DOMAIN_SET#DOMAIN=}"
+  echo " (o Caddy emite o certificado Let's Encrypt no 1º acesso — aguarde ~1 min)"
+else
+  echo " Pronto! Acesse:  http://${IP}"
+  echo ""
+  echo " Para HTTPS com domínio (Route 53):"
+  echo "   1. Aponte um registro A do subdomínio para ${IP} (use IP estático!)."
+  echo "   2. Abra a porta 443 no firewall do Lightsail."
+  echo "   3. Preencha DOMAIN=seu.subdominio no .env e rode:"
+  echo "        sudo docker compose -f docker-compose.prod.yml up -d"
+fi
 echo " Entre com usuário 'admin' e a senha mostrada acima."
 echo ""
 echo " Comandos úteis:"
-echo "   sudo docker compose -f docker-compose.prod.yml logs -f web   # logs"
-echo "   sudo docker compose -f docker-compose.prod.yml restart web   # reiniciar"
+echo "   sudo docker compose -f docker-compose.prod.yml logs -f        # logs"
+echo "   sudo docker compose -f docker-compose.prod.yml restart        # reiniciar"
 echo "   git pull && sudo docker compose -f docker-compose.prod.yml up -d --build  # atualizar"
 echo "======================================================================"

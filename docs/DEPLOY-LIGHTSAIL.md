@@ -53,11 +53,23 @@ cd doc-broto && git pull
 sudo docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-## HTTPS e domínio (opcional, recomendado depois)
-Para servir em `https://` com domínio próprio, o caminho mais barato é colocar o
-**Caddy** (certificado Let's Encrypt automático) na frente do app, ou anexar um
-**Lightsail Load Balancer** com certificado gerenciado (~US$ 18/mês). Posso montar o
-Caddy quando você tiver o domínio apontado para o IP da instância.
+## HTTPS + subdomínio (Route 53) — quando quiser
+O app já vem com **Caddy** na frente, que emite **certificado Let's Encrypt
+automaticamente** (grátis) e **não tem limite de timeout** (importante para OCR/
+conversões longas). Passos:
+
+1. **IP estático:** na instância → Networking → **Create static IP** → anexe. Use esse IP.
+2. **Abrir a porta 443** no firewall do Lightsail (HTTPS), além da 80.
+3. **Route 53:** no hosted zone, crie um registro **A** do subdomínio
+   (ex.: `pdf.suaempresa.com.br`) apontando para o **IP estático**.
+4. Na instância, edite `.env` → `DOMAIN=pdf.suaempresa.com.br` e rode:
+   ```bash
+   sudo docker compose -f docker-compose.prod.yml up -d
+   ```
+   O Caddy emite o certificado no primeiro acesso (aguarde ~1 min). Pronto: `https://…`.
+
+> A porta 80 continua aberta (o Caddy a usa para o desafio ACME e para redirecionar
+> HTTP→HTTPS). Nada de certificado manual.
 
 ## Custo
 - Instância Lightsail **2 GB: ~US$ 12/mês** (com swap) ou **4 GB: ~US$ 24/mês** — inclui IP e franquia de tráfego.
