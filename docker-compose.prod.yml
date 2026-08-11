@@ -40,7 +40,6 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       ADMIN_NAME: ${ADMIN_NAME}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
 
   caddy:
     image: caddy:2-alpine

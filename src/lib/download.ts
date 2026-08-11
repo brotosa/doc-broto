@@ -1,3 +1,5 @@
+import { showToast } from "./toast";
+
 export function downloadBlob(data: Uint8Array | Blob, filename: string, type = "application/pdf") {
   const blob = data instanceof Blob ? data : new Blob([data as BlobPart], { type });
   const url = URL.createObjectURL(blob);
@@ -8,6 +10,7 @@ export function downloadBlob(data: Uint8Array | Blob, filename: string, type = "
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast("Documento concluído! O download foi iniciado.");
 }
 
 export function formatBytes(bytes: number): string {

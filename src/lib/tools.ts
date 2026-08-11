@@ -309,26 +309,6 @@ export const TOOLS: Tool[] = [
     glyph: "AБ",
     ready: true,
   },
-  {
-    slug: "traduzir-pdf",
-    title: "Traduzir PDF",
-    description:
-      "Traduza facilmente arquivos PDF com IA. Mantenha as fontes, o layout e a formatação perfeitamente intactos.",
-    category: "intelligence",
-    color: "bg-brand-yellow text-brand-ink",
-    glyph: "文A",
-    ready: true,
-  },
-  {
-    slug: "pdf-para-markdown",
-    title: "PDF para Markdown",
-    description:
-      "Converta facilmente PDFs em arquivos Markdown. Perfeito para anotações, documentos e LLMs. Títulos, tabelas, listas e links são preservados automaticamente.",
-    category: "intelligence",
-    color: "bg-brand-yellow text-brand-ink",
-    glyph: "{#}",
-    ready: true,
-  },
 ];
 
 export const READY_TOOLS = TOOLS.filter((t) => t.ready);
