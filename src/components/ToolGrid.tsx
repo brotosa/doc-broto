@@ -19,9 +19,9 @@ const FILTERS: Array<{ key: "todas" | ToolCategory; label: string; dot: string }
 // Destaques do mosaico (aplicados apenas em "Todas").
 const FEATURED: Record<string, "featBlue" | "featGreen"> = {
   "juntar-pdf": "featBlue",
-  "resumir-com-ia": "featGreen",
+  "comprimir-pdf": "featGreen",
 };
-const WIDE = new Set(["comprimir-pdf", "pdf-para-word", "ocr-pdf"]);
+const WIDE = new Set(["pdf-para-word", "ocr-pdf"]);
 
 function FeaturedCell({ tool, i, variant }: { tool: Tool; i: number; variant: "featBlue" | "featGreen" }) {
   return (
