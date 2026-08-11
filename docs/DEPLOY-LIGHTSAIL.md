@@ -62,10 +62,11 @@ conversões longas). Passos:
 2. **Abrir a porta 443** no firewall do Lightsail (HTTPS), além da 80.
 3. **Route 53:** no hosted zone, crie um registro **A** do subdomínio
    (ex.: `pdf.suaempresa.com.br`) apontando para o **IP estático**.
-4. Na instância, edite `.env` → `DOMAIN=pdf.suaempresa.com.br` e rode:
+4. Na instância, edite `.env`: `DOMAIN=pdf.suaempresa.com.br` e `COOKIE_SECURE=true`, e rode:
    ```bash
    sudo docker compose -f docker-compose.prod.yml up -d
    ```
+   (`COOKIE_SECURE=true` só em HTTPS; em HTTP puro deixe `false`, senão o login não persiste.)
    O Caddy emite o certificado no primeiro acesso (aguarde ~1 min). Pronto: `https://…`.
 
 > A porta 80 continua aberta (o Caddy a usa para o desafio ACME e para redirecionar

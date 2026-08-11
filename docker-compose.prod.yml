@@ -34,6 +34,8 @@ services:
       DATABASE_URL: postgres://broto:${POSTGRES_PASSWORD}@db:5432/broto
       PGSSL: "off"
       AUTH_SECRET: ${AUTH_SECRET}
+      # true só quando servir por HTTPS (com DOMAIN). Em HTTP puro deixe false.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       ADMIN_NAME: ${ADMIN_NAME}
