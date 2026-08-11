@@ -48,8 +48,6 @@ POSTGRES_PASSWORD=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9')
 ADMIN_EMAIL=${ADMIN_EMAIL_INPUT}
 ADMIN_PASSWORD=${ADMIN_PW}
 ADMIN_NAME=Administrador
-# Opcional: chave da IA (Resumir/Traduzir/PDF->Markdown). Deixe em branco para desativar.
-ANTHROPIC_API_KEY=
 # Opcional: subdomínio para HTTPS automático (ex.: pdf.suaempresa.com.br).
 # Deixe em branco para servir em HTTP pelo IP. Ao preencher, rode o compose de novo.
 DOMAIN=

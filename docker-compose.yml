@@ -5,10 +5,4 @@ services:
     build: .
     ports:
       - "3000:3000"
-    environment:
-      # Necessária apenas para as ferramentas de IA (Resumir, Traduzir, PDF->Markdown).
-      # Deixe em branco para desativá-las (as demais ferramentas funcionam sem chave).
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      # Opcional: sobrescreve o modelo padrão (claude-opus-5).
-      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-}
     restart: unless-stopped
