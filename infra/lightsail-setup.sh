@@ -15,13 +15,26 @@
 set -euo pipefail
 cd "$(cd "$(dirname "$0")/.." && pwd)"
 
-echo "==> 1/3 Docker"
+echo "==> 1/4 Docker"
 if ! command -v docker >/dev/null 2>&1; then
   curl -fsSL https://get.docker.com | sh
   sudo usermod -aG docker "$USER" || true
 fi
 
-echo "==> 2/3 Configuração (.env)"
+echo "==> 2/4 Swap (memória extra p/ conversões pesadas em instâncias pequenas)"
+if ! sudo swapon --show | grep -q .; then
+  sudo fallocate -l 3G /swapfile 2>/dev/null || sudo dd if=/dev/zero of=/swapfile bs=1M count=3072
+  sudo chmod 600 /swapfile
+  sudo mkswap /swapfile >/dev/null
+  sudo swapon /swapfile
+  grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+  sudo sysctl -w vm.swappiness=20 >/dev/null || true
+  echo "   swap de 3 GB criado (torna o plano de 2 GB viável)."
+else
+  echo "   swap já ativo."
+fi
+
+echo "==> 3/4 Configuração (.env)"
 if [ ! -f .env ]; then
   ADMIN_PW="$(openssl rand -base64 12 | tr -dc 'A-Za-z0-9' | cut -c1-12)"
   cat > .env <<EOF
@@ -45,7 +58,7 @@ else
   echo "   .env já existe — mantendo o atual."
 fi
 
-echo "==> 3/3 Build e subida (primeira vez demora ~8-15 min)"
+echo "==> 4/4 Build e subida (primeira vez demora ~8-15 min)"
 sudo docker compose -f docker-compose.prod.yml up -d --build
 
 IP="$(curl -s --max-time 5 ifconfig.me || echo 'SEU_IP_PUBLICO')"

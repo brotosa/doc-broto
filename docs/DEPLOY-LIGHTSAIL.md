@@ -1,20 +1,23 @@
 # Deploy na AWS Lightsail (app + Postgres, custo baixo)
 
 Roda tudo numa **única instância Lightsail** com Docker: o app Next.js e o Postgres
-(com volume persistente). Custo previsível ~US$ 24/mês (plano 4 GB), IP e tráfego inclusos.
+(com volume persistente). IP e tráfego inclusos. Custo a partir de **~US$ 12/mês**
+(plano 2 GB + swap, criado pelo script).
 
 ## 1. Criar a instância
 No console (https://lightsail.aws.amazon.com) → **Create instance**:
 - Região: **São Paulo (sa-east-1)**
 - Plataforma: **Linux/Unix** → **OS Only** → **Ubuntu 22.04 LTS**
-- Plano: **4 GB / 2 vCPU** (recomendado; 2 GB aperta em OCR/LibreOffice)
+- Plano:
+  - **2 GB / 2 vCPU (~US$ 12/mês)** — econômico. O script cria **3 GB de swap** para aguentar picos de OCR/LibreOffice. Ideal para uso interno leve.
+  - **4 GB / 2 vCPU (~US$ 24/mês)** — folgado, se houver uso simultâneo pesado.
 - Nome: `broto-pdf` → **Create**
 
-> Preferindo CLI (precisa do AWS CLI configurado):
+> Preferindo CLI (precisa do AWS CLI configurado) — `small_2_0` = 2 GB, `medium_2_0` = 4 GB:
 > ```bash
 > aws lightsail create-instances --instance-names broto-pdf \
 >   --availability-zone sa-east-1a --blueprint-id ubuntu_22_04 \
->   --bundle-id medium_2_0 --region sa-east-1
+>   --bundle-id small_2_0 --region sa-east-1
 > ```
 
 ## 2. Abrir a porta 80 (HTTP)
@@ -57,6 +60,10 @@ Para servir em `https://` com domínio próprio, o caminho mais barato é coloca
 Caddy quando você tiver o domínio apontado para o IP da instância.
 
 ## Custo
-- Instância Lightsail 4 GB: **~US$ 24/mês** (inclui IP e franquia de tráfego).
+- Instância Lightsail **2 GB: ~US$ 12/mês** (com swap) ou **4 GB: ~US$ 24/mês** — inclui IP e franquia de tráfego.
 - Postgres e auth: **US$ 0** (rodam na mesma instância).
 - Snapshots automáticos (opcional): +~US$ 2–5/mês.
+
+> Piso realista na AWS para este app é ~US$ 12/mês (2 GB). Planos de 1 GB/512 MB
+> não rodam LibreOffice/Chromium de forma confiável, mesmo com swap. Parar a
+> instância não reduz o custo no Lightsail (cobra-se pelo plano enquanto existir).
