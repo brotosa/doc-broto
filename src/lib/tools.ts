@@ -308,7 +308,6 @@ export const TOOLS: Tool[] = [
     color: "bg-brand-green text-white",
     glyph: "AБ",
     ready: true,
-    isNew: true,
   },
   {
     slug: "resumir-com-ia",
@@ -319,7 +318,6 @@ export const TOOLS: Tool[] = [
     color: "bg-brand-yellow text-brand-ink",
     glyph: "✦",
     ready: true,
-    isNew: true,
   },
   {
     slug: "traduzir-pdf",
@@ -330,7 +328,6 @@ export const TOOLS: Tool[] = [
     color: "bg-brand-yellow text-brand-ink",
     glyph: "文A",
     ready: true,
-    isNew: true,
   },
   {
     slug: "pdf-para-markdown",
@@ -341,7 +338,6 @@ export const TOOLS: Tool[] = [
     color: "bg-brand-yellow text-brand-ink",
     glyph: "{#}",
     ready: true,
-    isNew: true,
   },
 ];
 
