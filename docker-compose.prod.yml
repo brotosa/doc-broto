@@ -1,0 +1,62 @@
+# Produção (AWS Lightsail): Caddy (HTTPS) + app Next.js + Postgres, numa instância.
+# Suba com:  ./infra/lightsail-setup.sh   (gera o .env e faz o build/up)
+# Dados do Postgres e certificados TLS ficam em volumes (persistem entre reinícios).
+#
+# HTTPS: defina DOMAIN=seu.subdominio no .env e o Caddy pega o certificado
+# Let's Encrypt automaticamente. Sem DOMAIN, serve em HTTP na porta 80 (pelo IP).
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: broto
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: broto
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U broto -d broto"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      DATABASE_URL: postgres://broto:${POSTGRES_PASSWORD}@db:5432/broto
+      PGSSL: "off"
+      AUTH_SECRET: ${AUTH_SECRET}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_NAME: ${ADMIN_NAME}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Com DOMAIN definido → HTTPS automático nesse domínio.
+      # Sem DOMAIN → serve em HTTP na porta 80 (acesso por IP).
+      SITE_ADDRESS: ${DOMAIN:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

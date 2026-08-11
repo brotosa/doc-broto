@@ -1,0 +1,12 @@
+# Proxy reverso com HTTPS automático (Let's Encrypt) via Caddy.
+# SITE_ADDRESS vem do docker-compose:
+#   - um domínio (ex.: pdf.suaempresa.com.br) → HTTPS automático
+#   - ":80" → HTTP simples (acesso por IP, antes de configurar o domínio)
+{$SITE_ADDRESS} {
+	encode gzip
+	# Uploads de até 100 MB (conversões/OCR).
+	request_body {
+		max_size 100MB
+	}
+	reverse_proxy web:3000
+}
