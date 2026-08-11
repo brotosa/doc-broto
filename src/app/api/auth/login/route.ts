@@ -7,11 +7,11 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   try {
     await ensureAdminSeed();
-    const { username, password } = await req.json();
-    const p = await authenticate(username, password);
+    const { email, password } = await req.json();
+    const p = await authenticate(email, password);
     await setSessionCookie({
       uid: p.id,
-      username: p.username,
+      email: p.email,
       name: p.name,
       role: p.role,
       mustChange: p.mustChange,

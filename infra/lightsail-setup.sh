@@ -15,6 +15,10 @@
 set -euo pipefail
 cd "$(cd "$(dirname "$0")/.." && pwd)"
 
+# E-mail do primeiro admin (login é por e-mail). Pode passar como argumento:
+#   ./infra/lightsail-setup.sh admin@suaempresa.com.br
+ADMIN_EMAIL_INPUT="${1:-admin@broto.local}"
+
 echo "==> 1/4 Docker"
 if ! command -v docker >/dev/null 2>&1; then
   curl -fsSL https://get.docker.com | sh
@@ -41,7 +45,7 @@ if [ ! -f .env ]; then
 # Gerado por lightsail-setup.sh
 AUTH_SECRET=$(openssl rand -base64 48)
 POSTGRES_PASSWORD=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9')
-ADMIN_USERNAME=admin
+ADMIN_EMAIL=${ADMIN_EMAIL_INPUT}
 ADMIN_PASSWORD=${ADMIN_PW}
 ADMIN_NAME=Administrador
 # Opcional: chave da IA (Resumir/Traduzir/PDF->Markdown). Deixe em branco para desativar.
@@ -55,8 +59,8 @@ COOKIE_SECURE=false
 EOF
   echo ""
   echo "   ****************************************************************"
-  echo "   *  Usuário admin: admin"
-  echo "   *  Senha admin:   ${ADMIN_PW}"
+  echo "   *  E-mail admin: ${ADMIN_EMAIL_INPUT}"
+  echo "   *  Senha admin:  ${ADMIN_PW}"
   echo "   *  (guarde agora! troque após o 1º login)"
   echo "   ****************************************************************"
   echo ""
@@ -83,7 +87,7 @@ else
   echo "   3. No .env: preencha DOMAIN=seu.subdominio e troque COOKIE_SECURE=true, e rode:"
   echo "        sudo docker compose -f docker-compose.prod.yml up -d"
 fi
-echo " Entre com usuário 'admin' e a senha mostrada acima."
+echo " Entre com o e-mail do admin e a senha mostrada acima."
 echo ""
 echo " Comandos úteis:"
 echo "   sudo docker compose -f docker-compose.prod.yml logs -f        # logs"

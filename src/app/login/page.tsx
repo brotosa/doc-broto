@@ -9,7 +9,7 @@ type Msg = { t: "err" | "ok"; m: string } | null;
 export default function LoginPage() {
   const router = useRouter();
   const [tab, setTab] = useState<"entrar" | "criar">("entrar");
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState<Msg>(null);
@@ -28,7 +28,7 @@ export default function LoginPage() {
       const r = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
       const d = await r.json();
       if (!r.ok) {
@@ -50,7 +50,7 @@ export default function LoginPage() {
       const r = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, name, password }),
+        body: JSON.stringify({ email, name, password }),
       });
       const d = await r.json();
       if (!r.ok) {
@@ -93,8 +93,8 @@ export default function LoginPage() {
 
         <form onSubmit={isEntrar ? entrar : criar} className="flex flex-col gap-3">
           <label className="text-sm font-medium text-gray-700">
-            Usuário
-            <input className={`mt-1 ${input}`} value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required />
+            E-mail
+            <input type="email" className={`mt-1 ${input}`} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
           </label>
 
           {!isEntrar && (

@@ -39,7 +39,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     await audit({
       action: acoes.join(", ") || "editou usuário",
       byName: admin.name,
-      targetName: alvo.username,
+      targetName: alvo.email,
     });
     return NextResponse.json({ ok: true });
   } catch (e) {
@@ -57,6 +57,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const alvo = await getProfile(id);
   if (!alvo) return NextResponse.json({ error: "usuário não encontrado" }, { status: 404 });
   await deleteUser(id);
-  await audit({ action: "excluiu usuário", byName: admin.name, targetName: alvo.username });
+  await audit({ action: "excluiu usuário", byName: admin.name, targetName: alvo.email });
   return NextResponse.json({ ok: true });
 }

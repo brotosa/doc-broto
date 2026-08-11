@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 type Profile = {
   id: string;
-  username: string;
+  email: string;
   name: string;
   role: "admin" | "comum";
   approved: boolean;
@@ -18,7 +18,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [audit, setAudit] = useState<Audit[]>([]);
   const [err, setErr] = useState("");
-  const [novo, setNovo] = useState({ username: "", name: "", password: "", role: "comum" });
+  const [novo, setNovo] = useState({ email: "", name: "", password: "", role: "comum" });
 
   const load = useCallback(async () => {
     const [u, a] = await Promise.all([
@@ -51,7 +51,7 @@ export default function AdminPage() {
       body: JSON.stringify(novo),
     });
     if (!r.ok) { setErr((await r.json()).error || "Falha ao criar usuário."); return; }
-    setNovo({ username: "", name: "", password: "", role: "comum" });
+    setNovo({ email: "", name: "", password: "", role: "comum" });
     await load();
   }
 
@@ -75,8 +75,8 @@ export default function AdminPage() {
       {/* novo usuário */}
       <form onSubmit={criar} className="flex flex-wrap items-end gap-3 rounded-2xl border border-gray-100 bg-white p-4">
         <div className="flex flex-col">
-          <label className="mb-1 text-xs font-semibold text-gray-500">Usuário</label>
-          <input className={input} value={novo.username} onChange={(e) => setNovo({ ...novo, username: e.target.value })} required />
+          <label className="mb-1 text-xs font-semibold text-gray-500">E-mail</label>
+          <input type="email" className={input} value={novo.email} onChange={(e) => setNovo({ ...novo, email: e.target.value })} required />
         </div>
         <div className="flex flex-col">
           <label className="mb-1 text-xs font-semibold text-gray-500">Nome</label>
@@ -103,7 +103,7 @@ export default function AdminPage() {
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
             <tr>
-              <th className="px-4 py-3">Usuário</th>
+              <th className="px-4 py-3">E-mail</th>
               <th className="px-4 py-3">Nome</th>
               <th className="px-4 py-3">Tipo</th>
               <th className="px-4 py-3">Situação</th>
@@ -113,7 +113,7 @@ export default function AdminPage() {
           <tbody>
             {users.map((u) => (
               <tr key={u.id} className="border-b border-gray-50 last:border-0">
-                <td className="px-4 py-3 font-medium text-gray-800">{u.username}</td>
+                <td className="px-4 py-3 font-medium text-gray-800">{u.email}</td>
                 <td className="px-4 py-3 text-gray-600">{u.name}</td>
                 <td className="px-4 py-3">
                   {u.role === "admin" ? badge("Admin", "bg-brand/10 text-brand") : badge("Comum", "bg-gray-100 text-gray-600")}
@@ -138,7 +138,7 @@ export default function AdminPage() {
                     </button>
                     <button
                       onClick={() => {
-                        const s = prompt(`Nova senha para ${u.username} (mín. 6):`);
+                        const s = prompt(`Nova senha para ${u.email} (mín. 6):`);
                         if (s) act(u.id, "PATCH", { password: s });
                       }}
                       className="rounded-md bg-gray-100 px-2.5 py-1 text-gray-700 hover:bg-gray-200"
@@ -146,7 +146,7 @@ export default function AdminPage() {
                       Redefinir senha
                     </button>
                     <button
-                      onClick={() => { if (confirm(`Excluir ${u.username}?`)) act(u.id, "DELETE"); }}
+                      onClick={() => { if (confirm(`Excluir ${u.email}?`)) act(u.id, "DELETE"); }}
                       className="rounded-md bg-red-50 px-2.5 py-1 text-red-600 hover:bg-red-100"
                     >
                       Excluir
