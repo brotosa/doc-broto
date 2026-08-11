@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Modal } from "@/components/Modal";
 
 type Profile = {
   id: string;
@@ -13,6 +14,17 @@ type Profile = {
   createdAt: number;
 };
 type Audit = { action: string; byName?: string; targetName?: string; detail?: string; at?: number };
+type Policy = {
+  minLength: number;
+  requireLower: boolean;
+  requireUpper: boolean;
+  requireNumber: boolean;
+  requireSymbol: boolean;
+  expirationDays: number;
+  preventReuse: number;
+};
+
+const input = "rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-brand";
 
 export default function AdminPage() {
   const [users, setUsers] = useState<Profile[]>([]);
@@ -20,13 +32,25 @@ export default function AdminPage() {
   const [err, setErr] = useState("");
   const [novo, setNovo] = useState({ email: "", name: "", password: "", role: "comum" });
 
+  // modais
+  const [resetTarget, setResetTarget] = useState<Profile | null>(null);
+  const [resetPw, setResetPw] = useState("");
+  const [resetErr, setResetErr] = useState("");
+  const [delTarget, setDelTarget] = useState<Profile | null>(null);
+
+  // política de senha
+  const [policy, setPolicy] = useState<Policy | null>(null);
+  const [policyMsg, setPolicyMsg] = useState("");
+
   const load = useCallback(async () => {
-    const [u, a] = await Promise.all([
+    const [u, a, p] = await Promise.all([
       fetch("/api/admin/users").then((r) => r.json()),
       fetch("/api/admin/audit").then((r) => r.json()),
+      fetch("/api/admin/policy").then((r) => r.json()),
     ]);
     setUsers(u.users || []);
     setAudit(a.entries || []);
+    if (p.policy) setPolicy(p.policy);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -55,11 +79,54 @@ export default function AdminPage() {
     await load();
   }
 
+  async function confirmReset() {
+    if (!resetTarget) return;
+    setResetErr("");
+    const r = await fetch(`/api/admin/users/${resetTarget.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ password: resetPw }),
+    });
+    if (!r.ok) { setResetErr((await r.json()).error || "Falha ao redefinir."); return; }
+    setResetTarget(null); setResetPw("");
+    await load();
+  }
+
+  async function confirmDelete() {
+    if (!delTarget) return;
+    await act(delTarget.id, "DELETE");
+    setDelTarget(null);
+  }
+
+  async function savePolicy(e: React.FormEvent) {
+    e.preventDefault();
+    if (!policy) return;
+    setPolicyMsg("");
+    const r = await fetch("/api/admin/policy", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(policy),
+    });
+    const d = await r.json();
+    if (!r.ok) { setPolicyMsg(d.error || "Falha ao salvar."); return; }
+    setPolicy(d.policy);
+    setPolicyMsg("Política salva ✓");
+  }
+
+  const genPassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$";
+    let s = "";
+    const arr = new Uint32Array(14);
+    crypto.getRandomValues(arr);
+    for (const n of arr) s += chars[n % chars.length];
+    setResetPw(s);
+  };
+
   const pend = users.filter((u) => !u.approved).length;
   const badge = (txt: string, cls: string) => (
     <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${cls}`}>{txt}</span>
   );
-  const input = "rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-brand";
+  const setP = (k: keyof Policy, v: number | boolean) => setPolicy((p) => (p ? { ...p, [k]: v } : p));
 
   return (
     <div className="flex flex-col gap-8">
@@ -136,19 +203,10 @@ export default function AdminPage() {
                     <button onClick={() => act(u.id, "PATCH", { role: u.role === "admin" ? "comum" : "admin" })} className="rounded-md bg-gray-100 px-2.5 py-1 text-gray-700 hover:bg-gray-200">
                       {u.role === "admin" ? "→ Comum" : "→ Admin"}
                     </button>
-                    <button
-                      onClick={() => {
-                        const s = prompt(`Nova senha para ${u.email} (mín. 6):`);
-                        if (s) act(u.id, "PATCH", { password: s });
-                      }}
-                      className="rounded-md bg-gray-100 px-2.5 py-1 text-gray-700 hover:bg-gray-200"
-                    >
+                    <button onClick={() => { setResetTarget(u); setResetPw(""); setResetErr(""); }} className="rounded-md bg-gray-100 px-2.5 py-1 text-gray-700 hover:bg-gray-200">
                       Redefinir senha
                     </button>
-                    <button
-                      onClick={() => { if (confirm(`Excluir ${u.email}?`)) act(u.id, "DELETE"); }}
-                      className="rounded-md bg-red-50 px-2.5 py-1 text-red-600 hover:bg-red-100"
-                    >
+                    <button onClick={() => setDelTarget(u)} className="rounded-md bg-red-50 px-2.5 py-1 text-red-600 hover:bg-red-100">
                       Excluir
                     </button>
                   </div>
@@ -161,6 +219,44 @@ export default function AdminPage() {
           </tbody>
         </table>
       </div>
+
+      {/* política de senha */}
+      {policy && (
+        <form onSubmit={savePolicy} className="rounded-2xl border border-gray-100 bg-white p-5">
+          <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-gray-400">Política de senha</h2>
+          <p className="mb-4 text-sm text-gray-500">Regras aplicadas ao criar/alterar senhas.</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-gray-700">Mínimo de caracteres</span>
+              <input type="number" min={4} max={64} className={`${input} w-28`} value={policy.minLength}
+                onChange={(e) => setP("minLength", Number(e.target.value))} />
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-gray-700">Expiração (dias, 0 = nunca)</span>
+              <input type="number" min={0} max={3650} className={`${input} w-28`} value={policy.expirationDays}
+                onChange={(e) => setP("expirationDays", Number(e.target.value))} />
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-gray-700">Não repetir as últimas N senhas (0 = desliga)</span>
+              <input type="number" min={0} max={24} className={`${input} w-28`} value={policy.preventReuse}
+                onChange={(e) => setP("preventReuse", Number(e.target.value))} />
+            </label>
+            <div className="text-sm">
+              <span className="mb-1 block font-medium text-gray-700">Exigir</span>
+              <div className="flex flex-col gap-1.5 text-gray-600">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={policy.requireLower} onChange={(e) => setP("requireLower", e.target.checked)} /> letra minúscula</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={policy.requireUpper} onChange={(e) => setP("requireUpper", e.target.checked)} /> letra maiúscula</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={policy.requireNumber} onChange={(e) => setP("requireNumber", e.target.checked)} /> número</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={policy.requireSymbol} onChange={(e) => setP("requireSymbol", e.target.checked)} /> símbolo (ex.: !@#$)</label>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-3">
+            <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar política</button>
+            {policyMsg && <span className={`text-sm ${policyMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{policyMsg}</span>}
+          </div>
+        </form>
+      )}
 
       {/* auditoria */}
       <div>
@@ -178,6 +274,43 @@ export default function AdminPage() {
           {audit.length === 0 && <p className="text-sm text-gray-400">Sem registros ainda.</p>}
         </div>
       </div>
+
+      {/* Modal: redefinir senha */}
+      <Modal open={!!resetTarget} title="Redefinir senha" onClose={() => setResetTarget(null)}>
+        <p className="mb-4 text-sm text-gray-600">
+          Definir uma nova senha para <b className="text-gray-800">{resetTarget?.email}</b>. A pessoa será
+          obrigada a trocá-la no próximo acesso.
+        </p>
+        <div className="flex gap-2">
+          <input
+            className={`${input} flex-1`} placeholder="Nova senha provisória"
+            value={resetPw} onChange={(e) => setResetPw(e.target.value)}
+          />
+          <button type="button" onClick={genPassword} className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
+            Gerar
+          </button>
+        </div>
+        {resetErr && <p className="mt-2 text-sm text-red-600">{resetErr}</p>}
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={() => setResetTarget(null)} className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Cancelar</button>
+          <button onClick={confirmReset} disabled={!resetPw} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
+            Redefinir
+          </button>
+        </div>
+      </Modal>
+
+      {/* Modal: excluir */}
+      <Modal open={!!delTarget} title="Excluir usuário" onClose={() => setDelTarget(null)}>
+        <p className="text-sm text-gray-600">
+          Tem certeza que deseja excluir <b className="text-gray-800">{delTarget?.email}</b>? Esta ação não pode ser desfeita.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={() => setDelTarget(null)} className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Cancelar</button>
+          <button onClick={confirmDelete} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700">
+            Excluir
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -18,6 +18,8 @@ export type UserRow = {
   failed_attempts: number;
   locked_until: number | null; // epoch ms
   created_at: number; // epoch ms
+  pwd_changed_at: number; // epoch ms
+  pwd_history: string[]; // hashes anteriores (mais recente primeiro)
 };
 
 export type AuditRow = {
@@ -39,12 +41,15 @@ export interface Store {
   count(): Promise<number>;
   addAudit(row: AuditRow): Promise<void>;
   listAudit(limit: number): Promise<AuditRow[]>;
+  getSetting<T>(key: string): Promise<T | null>;
+  setSetting<T>(key: string, value: T): Promise<void>;
 }
 
 /* ----------------------- Memória (dev) ----------------------- */
 class MemStore implements Store {
   private users = new Map<string, UserRow>();
   private audit: AuditRow[] = [];
+  private settings = new Map<string, unknown>();
   async init() {}
   async findByEmail(email: string) {
     for (const r of this.users.values()) if (r.email === email) return { ...r };
@@ -75,6 +80,12 @@ class MemStore implements Store {
   }
   async listAudit(limit: number) {
     return this.audit.slice(0, limit);
+  }
+  async getSetting<T>(key: string) {
+    return (this.settings.get(key) as T) ?? null;
+  }
+  async setSetting<T>(key: string, value: T) {
+    this.settings.set(key, value);
   }
 }
 
@@ -119,15 +130,19 @@ class PgStore implements Store {
           target_name text,
           detail text
         );
-        -- Migração: bancos antigos criados com a coluna "username".
+        CREATE TABLE IF NOT EXISTS settings (
+          key text PRIMARY KEY,
+          value jsonb NOT NULL
+        );
+        -- Migrações incrementais (idempotentes).
         DO $$
         BEGIN
           IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='username')
              AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='email')
-          THEN
-            ALTER TABLE users RENAME COLUMN username TO email;
-          END IF;
+          THEN ALTER TABLE users RENAME COLUMN username TO email; END IF;
         END $$;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS pwd_changed_at timestamptz NOT NULL DEFAULT now();
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS pwd_history text[] NOT NULL DEFAULT '{}';
       `);
     })();
     return this.ready;
@@ -146,6 +161,8 @@ class PgStore implements Store {
       failed_attempts: Number(r.failed_attempts ?? 0),
       locked_until: r.locked_until ? new Date(r.locked_until as string).getTime() : null,
       created_at: new Date(r.created_at as string).getTime(),
+      pwd_changed_at: r.pwd_changed_at ? new Date(r.pwd_changed_at as string).getTime() : Date.now(),
+      pwd_history: (r.pwd_history as string[]) ?? [],
     };
   }
 
@@ -162,10 +179,10 @@ class PgStore implements Store {
   async insert(r: UserRow) {
     const pool = await this.getPool();
     await pool.query(
-      `INSERT INTO users (id,email,name,password_hash,role,approved,active,must_change,failed_attempts,locked_until,created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,to_timestamp($11/1000.0))`,
+      `INSERT INTO users (id,email,name,password_hash,role,approved,active,must_change,failed_attempts,locked_until,created_at,pwd_changed_at,pwd_history)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,to_timestamp($11/1000.0),to_timestamp($12/1000.0),$13)`,
       [r.id, r.email, r.name, r.password_hash, r.role, r.approved, r.active, r.must_change,
-       r.failed_attempts, r.locked_until ? new Date(r.locked_until) : null, r.created_at]
+       r.failed_attempts, r.locked_until ? new Date(r.locked_until) : null, r.created_at, r.pwd_changed_at, r.pwd_history]
     );
   }
   async update(id: string, f: Partial<UserRow>) {
@@ -173,8 +190,8 @@ class PgStore implements Store {
     const vals: unknown[] = [];
     let i = 1;
     for (const [k, v] of Object.entries(f)) {
-      if (k === "locked_until") {
-        cols.push(`locked_until=$${i++}`);
+      if (k === "locked_until" || k === "pwd_changed_at") {
+        cols.push(`${k}=$${i++}`);
         vals.push(v ? new Date(v as number) : null);
       } else {
         cols.push(`${k}=$${i++}`);
@@ -217,6 +234,18 @@ class PgStore implements Store {
       target_name: r.target_name,
       detail: r.detail,
     }));
+  }
+  async getSetting<T>(key: string) {
+    const pool = await this.getPool();
+    const { rows } = await pool.query("SELECT value FROM settings WHERE key=$1", [key]);
+    return rows[0] ? (rows[0].value as T) : null;
+  }
+  async setSetting<T>(key: string, value: T) {
+    const pool = await this.getPool();
+    await pool.query(
+      "INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2",
+      [key, JSON.stringify(value)]
+    );
   }
 }
 
