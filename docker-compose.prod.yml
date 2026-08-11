@@ -1,0 +1,42 @@
+# Produção (AWS Lightsail): app Next.js + Postgres na mesma instância.
+# Suba com:  ./infra/lightsail-setup.sh   (gera o .env e faz o build/up)
+# Os dados do Postgres ficam no volume "pgdata" (persistem entre reinícios).
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: broto
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: broto
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U broto -d broto"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    # Porta 80 pública -> 3000 do container (Next.js).
+    ports:
+      - "80:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      DATABASE_URL: postgres://broto:${POSTGRES_PASSWORD}@db:5432/broto
+      PGSSL: "off"
+      AUTH_SECRET: ${AUTH_SECRET}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_NAME: ${ADMIN_NAME}
+      # Opcional: habilita as ferramentas de IA (Resumir/Traduzir/PDF->Markdown).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+volumes:
+  pgdata:

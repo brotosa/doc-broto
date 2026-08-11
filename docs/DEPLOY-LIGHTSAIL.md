@@ -1,0 +1,62 @@
+# Deploy na AWS Lightsail (app + Postgres, custo baixo)
+
+Roda tudo numa **única instância Lightsail** com Docker: o app Next.js e o Postgres
+(com volume persistente). Custo previsível ~US$ 24/mês (plano 4 GB), IP e tráfego inclusos.
+
+## 1. Criar a instância
+No console (https://lightsail.aws.amazon.com) → **Create instance**:
+- Região: **São Paulo (sa-east-1)**
+- Plataforma: **Linux/Unix** → **OS Only** → **Ubuntu 22.04 LTS**
+- Plano: **4 GB / 2 vCPU** (recomendado; 2 GB aperta em OCR/LibreOffice)
+- Nome: `broto-pdf` → **Create**
+
+> Preferindo CLI (precisa do AWS CLI configurado):
+> ```bash
+> aws lightsail create-instances --instance-names broto-pdf \
+>   --availability-zone sa-east-1a --blueprint-id ubuntu_22_04 \
+>   --bundle-id medium_2_0 --region sa-east-1
+> ```
+
+## 2. Abrir a porta 80 (HTTP)
+Na instância → aba **Networking** → **IPv4 Firewall** → **Add rule** → **HTTP (80)** → salvar.
+
+> CLI: `aws lightsail open-instance-public-ports --instance-name broto-pdf --region sa-east-1 --port-info fromPort=80,toPort=80,protocol=TCP`
+
+## 3. Entrar e rodar o setup
+Abra o terminal SSH da instância (botão no console) e:
+
+```bash
+git clone https://github.com/brotosa/doc-broto.git
+cd doc-broto
+./infra/lightsail-setup.sh
+```
+
+- Repositório privado: informe seu usuário do GitHub e um **token** (PAT) quando o `git clone` pedir senha.
+- O script instala o Docker, gera o `.env` (com segredos aleatórios) e sobe app + Postgres.
+- **Anote a senha do admin** que ele imprime no final.
+
+Ao terminar, acesse **http://SEU_IP** (o IP público aparece no console e no fim do script)
+e entre com **admin** + a senha gerada. Troque a senha no primeiro acesso.
+
+## 4. Ligar a IA (opcional)
+Edite `.env`, preencha `ANTHROPIC_API_KEY=sk-ant-...` e rode:
+```bash
+sudo docker compose -f docker-compose.prod.yml up -d
+```
+
+## Atualizar depois
+```bash
+cd doc-broto && git pull
+sudo docker compose -f docker-compose.prod.yml up -d --build
+```
+
+## HTTPS e domínio (opcional, recomendado depois)
+Para servir em `https://` com domínio próprio, o caminho mais barato é colocar o
+**Caddy** (certificado Let's Encrypt automático) na frente do app, ou anexar um
+**Lightsail Load Balancer** com certificado gerenciado (~US$ 18/mês). Posso montar o
+Caddy quando você tiver o domínio apontado para o IP da instância.
+
+## Custo
+- Instância Lightsail 4 GB: **~US$ 24/mês** (inclui IP e franquia de tráfego).
+- Postgres e auth: **US$ 0** (rodam na mesma instância).
+- Snapshots automáticos (opcional): +~US$ 2–5/mês.
