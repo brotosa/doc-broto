@@ -310,16 +310,6 @@ export const TOOLS: Tool[] = [
     ready: true,
   },
   {
-    slug: "resumir-com-ia",
-    title: "Resumir com IA",
-    description:
-      "Gere rapidamente resumos concisos de artigos, parágrafos e ensaios, fornecendo pontos-chave claros e precisos em segundos.",
-    category: "intelligence",
-    color: "bg-brand-yellow text-brand-ink",
-    glyph: "✦",
-    ready: true,
-  },
-  {
     slug: "traduzir-pdf",
     title: "Traduzir PDF",
     description:
