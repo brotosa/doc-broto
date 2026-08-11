@@ -1,6 +1,6 @@
 # Autenticação (login próprio + Postgres)
 
-Login com **usuário e senha**, dois perfis (**admin** e **comum**) e **aprovação
+Login com **e-mail e senha**, dois perfis (**admin** e **comum**) e **aprovação
 do admin** para novos cadastros. O app inteiro exige login.
 
 ## Como funciona
@@ -21,18 +21,18 @@ Copie `.env.example` para `.env` e preencha:
 | `DATABASE_URL` | Conexão Postgres. **Vazio = armazenamento em memória** (só dev; some ao reiniciar). |
 | `PGSSL` | `off` para Postgres local (sem SSL). Padrão: exige SSL. |
 | `AUTH_SECRET` | Segredo para assinar o cookie de sessão (string aleatória longa). |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Primeiro admin, criado no 1º acesso. |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Primeiro admin (login por e-mail), criado no 1º acesso. |
 
 Gere um segredo forte, por exemplo: `openssl rand -base64 48`.
 
 ## Rodar localmente (sem Postgres)
 Deixe `DATABASE_URL` **em branco**: os usuários ficam em memória (ideal para testar a
-tela de login). O primeiro admin é criado a partir de `ADMIN_USERNAME`/`ADMIN_PASSWORD`.
+tela de login). O primeiro admin é criado a partir de `ADMIN_EMAIL`/`ADMIN_PASSWORD`.
 
 ```bash
 # .env
 AUTH_SECRET=um-segredo-qualquer-bem-grande
-ADMIN_USERNAME=admin
+ADMIN_EMAIL=admin@suaempresa.com.br
 ADMIN_PASSWORD=admin123
 ```
 
@@ -50,7 +50,7 @@ No `.env` do app (mesma máquina):
 DATABASE_URL=postgres://broto:senha-forte@localhost:5432/broto
 PGSSL=off                     # Postgres local não usa SSL
 AUTH_SECRET=<openssl rand -base64 48>
-ADMIN_USERNAME=admin
+ADMIN_EMAIL=admin@suaempresa.com.br
 ADMIN_PASSWORD=<senha-forte-do-admin>
 ADMIN_NAME=Administrador
 ```

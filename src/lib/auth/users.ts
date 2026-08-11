@@ -6,7 +6,7 @@ import { getStore, type Role, type UserRow } from "./store";
 
 export type Profile = {
   id: string;
-  username: string;
+  email: string;
   name: string;
   role: Role;
   approved: boolean;
@@ -17,14 +17,18 @@ export type Profile = {
 
 const MAX_FAILED = 5;
 const LOCK_MS = 15 * 60 * 1000;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function norm(username: string): string {
-  return username.trim().toLowerCase();
+function norm(email: string): string {
+  return email.trim().toLowerCase();
+}
+export function isValidEmail(email: string): boolean {
+  return EMAIL_RE.test(norm(email));
 }
 function toProfile(r: UserRow): Profile {
   return {
     id: r.id,
-    username: r.username,
+    email: r.email,
     name: r.name,
     role: r.role,
     approved: r.approved,
@@ -39,15 +43,15 @@ async function init() {
 }
 
 /* -------- Autenticação (com bloqueio anti-força-bruta) -------- */
-export async function authenticate(username: string, password: string): Promise<Profile> {
+export async function authenticate(email: string, password: string): Promise<Profile> {
   await init();
   const store = getStore();
-  const user = await store.findByUsername(norm(username));
+  const user = await store.findByEmail(norm(email));
 
   if (!user) {
     // Compara com um hash falso pra igualar o tempo de resposta.
     await bcrypt.compare(password, "$2a$10$0000000000000000000000000000000000000000000000000000");
-    throw new Error("Usuário ou senha inválidos.");
+    throw new Error("E-mail ou senha inválidos.");
   }
 
   const now = Date.now();
@@ -65,7 +69,7 @@ export async function authenticate(username: string, password: string): Promise<
       patch.locked_until = now + LOCK_MS;
     }
     await store.update(user.id, patch);
-    throw new Error("Usuário ou senha inválidos.");
+    throw new Error("E-mail ou senha inválidos.");
   }
 
   if (user.failed_attempts || user.locked_until) {
@@ -78,7 +82,7 @@ export async function authenticate(username: string, password: string): Promise<
 
 /* -------- Criação de contas -------- */
 type CreateInput = {
-  username: string;
+  email: string;
   name: string;
   password: string;
   role?: Role;
@@ -88,15 +92,16 @@ type CreateInput = {
 export async function createAccount(input: CreateInput): Promise<Profile> {
   await init();
   const store = getStore();
-  const username = norm(input.username);
+  const email = norm(input.email);
   const name = input.name?.trim();
-  if (!username || !name || !input.password) throw new Error("Preencha usuário, nome e senha.");
+  if (!email || !name || !input.password) throw new Error("Preencha e-mail, nome e senha.");
+  if (!isValidEmail(email)) throw new Error("Informe um e-mail válido.");
   if (input.password.length < 6) throw new Error("A senha deve ter ao menos 6 caracteres.");
-  if (await store.findByUsername(username)) throw new Error("Este usuário já existe.");
+  if (await store.findByEmail(email)) throw new Error("Este e-mail já está cadastrado.");
 
   const row: UserRow = {
     id: randomUUID(),
-    username,
+    email,
     name,
     password_hash: await bcrypt.hash(input.password, 10),
     role: input.role ?? "comum",
@@ -156,15 +161,28 @@ export async function deleteUser(id: string): Promise<void> {
 }
 
 // Cria o primeiro admin a partir das variáveis de ambiente (idempotente).
+// ADMIN_EMAIL é o e-mail de login; ADMIN_USERNAME é aceito por compatibilidade.
 export async function ensureAdminSeed(): Promise<void> {
   await init();
-  const username = process.env.ADMIN_USERNAME;
+  const email = norm(process.env.ADMIN_EMAIL || process.env.ADMIN_USERNAME || "");
   const password = process.env.ADMIN_PASSWORD;
   const name = process.env.ADMIN_NAME || "Administrador";
-  if (!username || !password) return;
+  if (!email || !password) return;
   const store = getStore();
-  if (await store.findByUsername(norm(username))) return;
-  await createAccount({ username, name, password, role: "admin", approved: true, mustChange: false });
+  if (await store.findByEmail(email)) return;
+
+  // Converte um admin legado (seed antigo por "usuário") para o novo e-mail.
+  const legacy = norm(process.env.ADMIN_USERNAME || "");
+  if (legacy && legacy !== email) {
+    const old = await store.findByEmail(legacy);
+    if (old && old.role === "admin") {
+      await store.update(old.id, { email });
+      return;
+    }
+  }
+
+  if (!isValidEmail(email)) return; // evita semear um admin com "usuário" inválido
+  await createAccount({ email, name, password, role: "admin", approved: true, mustChange: false });
 }
 
 /* -------- Auditoria -------- */

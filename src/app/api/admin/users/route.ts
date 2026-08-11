@@ -20,16 +20,16 @@ export async function POST(req: Request) {
   const admin = await requireAdmin();
   if (!admin) return NextResponse.json({ error: "acesso restrito" }, { status: 403 });
   try {
-    const { username, name, password, role } = await req.json();
+    const { email, name, password, role } = await req.json();
     const p = await createAccount({
-      username,
+      email,
       name,
       password,
       role: role === "admin" ? "admin" : "comum",
       approved: true,
       mustChange: true,
     });
-    await audit({ action: "criou usuário", byName: admin.name, targetName: p.username, detail: p.role });
+    await audit({ action: "criou usuário", byName: admin.name, targetName: p.email, detail: p.role });
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });

@@ -8,7 +8,7 @@ export type Role = "admin" | "comum";
 
 export type UserRow = {
   id: string;
-  username: string;
+  email: string;
   name: string;
   password_hash: string;
   role: Role;
@@ -30,7 +30,7 @@ export type AuditRow = {
 
 export interface Store {
   init(): Promise<void>;
-  findByUsername(username: string): Promise<UserRow | null>;
+  findByEmail(email: string): Promise<UserRow | null>;
   findById(id: string): Promise<UserRow | null>;
   insert(row: UserRow): Promise<void>;
   update(id: string, fields: Partial<UserRow>): Promise<void>;
@@ -46,8 +46,8 @@ class MemStore implements Store {
   private users = new Map<string, UserRow>();
   private audit: AuditRow[] = [];
   async init() {}
-  async findByUsername(u: string) {
-    for (const r of this.users.values()) if (r.username === u) return { ...r };
+  async findByEmail(email: string) {
+    for (const r of this.users.values()) if (r.email === email) return { ...r };
     return null;
   }
   async findById(id: string) {
@@ -100,7 +100,7 @@ class PgStore implements Store {
       await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
           id text PRIMARY KEY,
-          username text UNIQUE NOT NULL,
+          email text UNIQUE NOT NULL,
           name text NOT NULL,
           password_hash text NOT NULL,
           role text NOT NULL DEFAULT 'comum',
@@ -119,6 +119,15 @@ class PgStore implements Store {
           target_name text,
           detail text
         );
+        -- Migração: bancos antigos criados com a coluna "username".
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='username')
+             AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='email')
+          THEN
+            ALTER TABLE users RENAME COLUMN username TO email;
+          END IF;
+        END $$;
       `);
     })();
     return this.ready;
@@ -127,7 +136,7 @@ class PgStore implements Store {
   private map(r: Record<string, unknown>): UserRow {
     return {
       id: r.id as string,
-      username: r.username as string,
+      email: r.email as string,
       name: r.name as string,
       password_hash: r.password_hash as string,
       role: (r.role as Role) === "admin" ? "admin" : "comum",
@@ -140,9 +149,9 @@ class PgStore implements Store {
     };
   }
 
-  async findByUsername(u: string) {
+  async findByEmail(email: string) {
     const pool = await this.getPool();
-    const { rows } = await pool.query("SELECT * FROM users WHERE username=$1", [u]);
+    const { rows } = await pool.query("SELECT * FROM users WHERE email=$1", [email]);
     return rows[0] ? this.map(rows[0]) : null;
   }
   async findById(id: string) {
@@ -153,9 +162,9 @@ class PgStore implements Store {
   async insert(r: UserRow) {
     const pool = await this.getPool();
     await pool.query(
-      `INSERT INTO users (id,username,name,password_hash,role,approved,active,must_change,failed_attempts,locked_until,created_at)
+      `INSERT INTO users (id,email,name,password_hash,role,approved,active,must_change,failed_attempts,locked_until,created_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,to_timestamp($11/1000.0))`,
-      [r.id, r.username, r.name, r.password_hash, r.role, r.approved, r.active, r.must_change,
+      [r.id, r.email, r.name, r.password_hash, r.role, r.approved, r.active, r.must_change,
        r.failed_attempts, r.locked_until ? new Date(r.locked_until) : null, r.created_at]
     );
   }

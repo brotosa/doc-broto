@@ -9,7 +9,7 @@ export const SESSION_MAX_AGE = 60 * 60 * 4; // 4 horas
 export type Role = "admin" | "comum";
 export type SessionUser = {
   uid: string;
-  username: string;
+  email: string;
   name: string;
   role: Role;
   mustChange: boolean;
@@ -35,7 +35,7 @@ export async function verifySession(token: string | undefined): Promise<SessionU
     const { payload } = await jwtVerify(token, secret());
     return {
       uid: String(payload.uid),
-      username: String(payload.username),
+      email: String(payload.email),
       name: String(payload.name),
       role: payload.role === "admin" ? "admin" : "comum",
       mustChange: Boolean(payload.mustChange),
