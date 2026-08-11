@@ -4,12 +4,14 @@ import type { Tool } from "@/lib/tools";
 export function ToolShell({
   tool,
   children,
+  wide = false,
 }: {
   tool: Tool;
   children: React.ReactNode;
+  wide?: boolean;
 }) {
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className={`mx-auto ${wide ? "max-w-6xl" : "max-w-3xl"}`}>
       <Link
         href="/"
         className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-brand"

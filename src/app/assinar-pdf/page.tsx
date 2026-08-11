@@ -8,7 +8,7 @@ import { FileDropzone } from "@/components/FileDropzone";
 import { downloadBlob } from "@/lib/download";
 
 const tool = getTool("assinar-pdf")!;
-const DISPLAY_W = 700; // largura de exibição das páginas (px)
+const RENDER_W = 1200; // resolução de renderização das páginas (px) — nitidez no zoom
 
 type Sig = { url: string; w: number; h: number };
 type PageImg = { url: string; wPt: number; hPt: number };
@@ -20,13 +20,12 @@ export default function SignPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [zoom, setZoom] = useState(900); // largura de exibição (px)
 
-  // assinatura
   const [mode, setMode] = useState<"draw" | "text" | "image">("draw");
   const [sig, setSig] = useState<Sig | null>(null);
   const [text, setText] = useState("");
 
-  // posicionamentos
   const [items, setItems] = useState<Placement[]>([]);
   const [sel, setSel] = useState<number | null>(null);
   const nextId = useRef(1);
@@ -45,9 +44,8 @@ export default function SignPage() {
         for (let i = 1; i <= doc.numPages; i++) {
           if (cancelled) return;
           const page = await doc.getPage(i);
-          const base = page.getViewport({ scale: 1 }); // dimensões em pontos do PDF
-          const scale = DISPLAY_W / base.width;
-          const viewport = page.getViewport({ scale });
+          const base = page.getViewport({ scale: 1 });
+          const viewport = page.getViewport({ scale: RENDER_W / base.width });
           const canvas = document.createElement("canvas");
           canvas.width = viewport.width;
           canvas.height = viewport.height;
@@ -91,7 +89,6 @@ export default function SignPage() {
     setSig({ url: c.toDataURL("image/png"), w: c.width, h: c.height });
     setError(null);
   };
-
   const useText = () => {
     if (!text.trim()) { setError("Digite o texto da assinatura."); return; }
     const fontPx = 90, pad = 24;
@@ -105,7 +102,6 @@ export default function SignPage() {
     ctx.fillText(text, pad, h / 2);
     setSig({ url: c.toDataURL("image/png"), w, h }); setError(null);
   };
-
   const useImage = (f?: File) => {
     if (!f) return;
     const reader = new FileReader();
@@ -127,7 +123,7 @@ export default function SignPage() {
     const r = e.currentTarget.getBoundingClientRect();
     const cx = (e.clientX - r.left) / r.width;
     const cy = (e.clientY - r.top) / r.height;
-    const wr = 0.28;
+    const wr = 0.26;
     const hr = boxHeightRatio(pages[pageIdx], wr);
     const id = nextId.current++;
     setItems((it) => [...it, { id, page: pageIdx, xr: clamp(cx - wr / 2, 0, 1 - wr), yr: clamp(cy - hr / 2, 0, 1 - hr), wr }]);
@@ -155,8 +151,7 @@ export default function SignPage() {
   };
   const boxUp = () => (dragRef.current = null);
 
-  const resize = (wr: number) =>
-    setItems((it) => it.map((p) => (p.id === sel ? { ...p, wr } : p)));
+  const resize = (wr: number) => setItems((it) => it.map((p) => (p.id === sel ? { ...p, wr } : p)));
   const removeSel = () => { setItems((it) => it.filter((p) => p.id !== sel)); setSel(null); };
 
   // ---------- aplicar ----------
@@ -168,9 +163,7 @@ export default function SignPage() {
       const bytes = new Uint8Array(await files[0].arrayBuffer());
       const doc = await PDFDocument.load(bytes);
       const imgBytes = await (await fetch(sig.url)).arrayBuffer();
-      const img = sig.url.startsWith("data:image/png")
-        ? await doc.embedPng(imgBytes)
-        : await doc.embedJpg(imgBytes);
+      const img = sig.url.startsWith("data:image/png") ? await doc.embedPng(imgBytes) : await doc.embedJpg(imgBytes);
       const docPages = doc.getPages();
       for (const it of items) {
         const page = docPages[it.page];
@@ -198,14 +191,15 @@ export default function SignPage() {
       {label}
     </button>
   );
+  const zbtn = "grid h-8 w-8 place-items-center rounded-lg bg-white text-lg font-bold text-gray-700 shadow-sm hover:bg-gray-50";
 
   return (
-    <ToolShell tool={tool}>
+    <ToolShell tool={tool} wide>
       <FileDropzone files={files} onFiles={setFiles} hint="Selecione um PDF" />
 
       {files.length > 0 && (
-        <div className="mt-6 grid gap-6 lg:grid-cols-[320px_1fr]">
-          {/* Painel: criar assinatura */}
+        <div className="mt-6 grid gap-6 lg:grid-cols-[300px_1fr]">
+          {/* Painel */}
           <div className="space-y-4">
             <div className="rounded-2xl border border-gray-200 bg-white p-4">
               <p className="mb-3 text-sm font-semibold text-gray-700">Sua assinatura</p>
@@ -224,23 +218,16 @@ export default function SignPage() {
                   </div>
                 </div>
               )}
-
               {mode === "text" && (
                 <div className="flex flex-col gap-2">
-                  <input
-                    value={text} onChange={(e) => setText(e.target.value)} placeholder="Seu nome"
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none"
-                  />
+                  <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Seu nome"
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand focus:outline-none" />
                   <button onClick={useText} className="self-start rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-white">Usar assinatura</button>
                 </div>
               )}
-
               {mode === "image" && (
-                <input
-                  type="file" accept="image/png,image/jpeg"
-                  onChange={(e) => useImage(e.target.files?.[0])}
-                  className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
-                />
+                <input type="file" accept="image/png,image/jpeg" onChange={(e) => useImage(e.target.files?.[0])}
+                  className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
               )}
 
               {sig && (
@@ -256,18 +243,16 @@ export default function SignPage() {
               <p className="font-semibold text-gray-700">Como posicionar</p>
               <ol className="mt-1 list-decimal space-y-1 pl-4">
                 <li>Crie a assinatura acima.</li>
-                <li>Clique no documento onde quiser colocá-la (pode ser em várias páginas).</li>
-                <li>Arraste para ajustar; selecione e use o tamanho abaixo.</li>
+                <li>Use o <b>zoom</b> se precisar ver melhor.</li>
+                <li>Clique no documento onde quiser (em várias páginas se quiser).</li>
+                <li>Arraste pra ajustar; selecione e mude o tamanho abaixo.</li>
               </ol>
               {sel !== null && (
                 <div className="mt-3">
                   <label className="mb-1 block text-xs font-medium text-gray-500">Tamanho da assinatura selecionada</label>
-                  <input
-                    type="range" min={0.1} max={0.6} step={0.01}
-                    value={items.find((p) => p.id === sel)?.wr ?? 0.28}
-                    onChange={(e) => resize(Number(e.target.value))}
-                    className="w-full"
-                  />
+                  <input type="range" min={0.08} max={0.7} step={0.01}
+                    value={items.find((p) => p.id === sel)?.wr ?? 0.26}
+                    onChange={(e) => resize(Number(e.target.value))} className="w-full" />
                   <button onClick={removeSel} className="mt-1 text-xs font-semibold text-red-600 hover:underline">Remover esta assinatura</button>
                 </div>
               )}
@@ -276,18 +261,22 @@ export default function SignPage() {
           </div>
 
           {/* Documento */}
-          <div className="max-h-[80vh] overflow-y-auto rounded-2xl border border-gray-200 bg-gray-100 p-4">
+          <div className="overflow-auto rounded-2xl border border-gray-200 bg-gray-100 p-4" style={{ maxHeight: "82vh" }}>
+            <div className="sticky top-0 z-20 mb-3 flex items-center justify-center gap-2 rounded-xl bg-white/90 p-2 shadow-sm backdrop-blur">
+              <span className="mr-1 text-xs font-medium text-gray-500">Zoom</span>
+              <button className={zbtn} onClick={() => setZoom((z) => Math.max(520, z - 150))}>−</button>
+              <span className="w-12 text-center text-sm font-semibold text-gray-700">{Math.round((zoom / 900) * 100)}%</span>
+              <button className={zbtn} onClick={() => setZoom((z) => Math.min(1800, z + 150))}>+</button>
+              <button className="ml-2 rounded-lg bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200" onClick={() => setZoom(900)}>Ajustar</button>
+            </div>
+
             {loading && <p className="py-10 text-center text-sm text-gray-500">Abrindo documento…</p>}
             <div className="flex flex-col items-center gap-4">
               {pages.map((p, i) => (
-                <div key={i} className="relative shadow-sm" style={{ width: DISPLAY_W, maxWidth: "100%" }}>
+                <div key={i} className="relative shadow-md" style={{ width: zoom, maxWidth: "100%" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.url} alt={`página ${i + 1}`} className="block w-full select-none" draggable={false} />
-                  {/* camada de clique/posicionamento */}
-                  <div
-                    className={`absolute inset-0 ${sig ? "cursor-crosshair" : ""}`}
-                    onPointerDown={(e) => addAt(i, e)}
-                  >
+                  <div className={`absolute inset-0 ${sig ? "cursor-crosshair" : ""}`} onPointerDown={(e) => addAt(i, e)}>
                     {items.filter((it) => it.page === i).map((it) => (
                       <div
                         key={it.id}
@@ -295,12 +284,7 @@ export default function SignPage() {
                         onPointerMove={boxMove}
                         onPointerUp={boxUp}
                         className={`absolute touch-none ${sel === it.id ? "ring-2 ring-brand" : "ring-1 ring-brand/40"}`}
-                        style={{
-                          left: `${it.xr * 100}%`,
-                          top: `${it.yr * 100}%`,
-                          width: `${it.wr * 100}%`,
-                          cursor: "move",
-                        }}
+                        style={{ left: `${it.xr * 100}%`, top: `${it.yr * 100}%`, width: `${it.wr * 100}%`, cursor: "move" }}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={sig!.url} alt="assinatura" className="pointer-events-none block w-full" draggable={false} />
