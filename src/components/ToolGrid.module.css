@@ -1,0 +1,215 @@
+/* Layout Bento animado da página de ferramentas.
+   Cores da marca Broto; animações: entrada em cascata, borda em gradiente
+   girando no hover, ícone que reage e brilho (sheen) nos tiles grandes. */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-flow: dense;
+  gap: 16px;
+}
+
+.cell {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  background: #e7e9f3; /* cor da "borda" no repouso */
+  min-height: 148px;
+  display: block;
+  opacity: 0;
+  transform: translateY(16px) scale(0.98);
+  animation: pop 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
+  transition: box-shadow 0.2s ease;
+}
+.cell:hover {
+  box-shadow: 0 14px 34px rgba(38, 54, 120, 0.16);
+}
+@keyframes pop {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* borda em gradiente girando (cards normais) */
+.glow {
+  position: absolute;
+  inset: -60%;
+  opacity: 0;
+  transition: opacity 0.25s;
+  background: conic-gradient(from 0deg, #465eff, #38dc6a, #fcfc30, #465eff);
+}
+.cell:hover .glow {
+  opacity: 1;
+  animation: spin 2.6s linear infinite;
+}
+.inner {
+  position: absolute;
+  inset: 1.5px;
+  background: #ffffff;
+  border-radius: 20px;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.cnt {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.icon {
+  transition: transform 0.3s ease;
+}
+.cell:hover .icon {
+  transform: rotate(-8deg) scale(1.08);
+}
+.title {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #201d12;
+}
+.desc {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #6b6f82;
+}
+.go {
+  margin-top: auto;
+  font-size: 12px;
+  font-weight: 800;
+  color: #465eff;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: 0.18s;
+}
+.cell:hover .go {
+  opacity: 1;
+  transform: none;
+}
+
+.soon {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 3;
+  border-radius: 6px;
+  background: #f1f2f6;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #8a8f9e;
+}
+.disabled {
+  cursor: not-allowed;
+}
+.disabled .inner {
+  background: #fafbfe;
+}
+.disabled .cnt {
+  opacity: 0.6;
+}
+
+/* spans do mosaico */
+.wide {
+  grid-column: span 2;
+}
+.feat {
+  grid-column: span 2;
+  grid-row: span 2;
+  background: none;
+}
+.feat .cnt {
+  justify-content: flex-end;
+}
+.featBlue {
+  background: linear-gradient(150deg, #5a70ff, #3a4fe0);
+}
+.featGreen {
+  background: linear-gradient(150deg, #49e879, #22c257);
+}
+.feat .title {
+  color: #fff;
+  font-size: 22px;
+}
+.featGreen .title {
+  color: #08331b;
+}
+.feat .desc {
+  color: rgba(255, 255, 255, 0.9);
+}
+.featGreen .desc {
+  color: rgba(6, 40, 20, 0.78);
+}
+.featIcon {
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  transition: transform 0.25s ease;
+}
+.featGreen .featIcon {
+  color: #08331b;
+}
+.cell:hover .featIcon {
+  transform: scale(1.1) rotate(-6deg);
+}
+.sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform: translateX(-130%);
+  background: linear-gradient(115deg, transparent 32%, rgba(255, 255, 255, 0.38) 50%, transparent 68%);
+}
+.feat:hover .sheen {
+  animation: sheen 0.85s ease;
+}
+@keyframes sheen {
+  to {
+    transform: translateX(130%);
+  }
+}
+
+@media (max-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .feat,
+  .wide {
+    grid-column: auto;
+  }
+  .feat {
+    grid-row: auto;
+    min-height: 180px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cell {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .cell:hover .glow {
+    animation: none;
+  }
+  .feat:hover .sheen {
+    animation: none;
+  }
+}
