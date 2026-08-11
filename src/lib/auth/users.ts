@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { getStore, type Role, type UserRow } from "./store";
+import { getPolicy, validatePassword } from "./policy";
 
 export type Profile = {
   id: string;
@@ -17,6 +18,7 @@ export type Profile = {
 
 const MAX_FAILED = 5;
 const LOCK_MS = 15 * 60 * 1000;
+const HISTORY_KEEP = 12;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function norm(email: string): string {
@@ -42,14 +44,13 @@ async function init() {
   await getStore().init();
 }
 
-/* -------- Autenticação (com bloqueio anti-força-bruta) -------- */
+/* -------- Autenticação (bloqueio + expiração de senha) -------- */
 export async function authenticate(email: string, password: string): Promise<Profile> {
   await init();
   const store = getStore();
   const user = await store.findByEmail(norm(email));
 
   if (!user) {
-    // Compara com um hash falso pra igualar o tempo de resposta.
     await bcrypt.compare(password, "$2a$10$0000000000000000000000000000000000000000000000000000");
     throw new Error("E-mail ou senha inválidos.");
   }
@@ -77,7 +78,18 @@ export async function authenticate(email: string, password: string): Promise<Pro
   }
   if (!user.approved) throw new Error("Conta aguardando liberação do administrador.");
   if (!user.active) throw new Error("Conta desativada. Fale com o administrador.");
-  return toProfile(user);
+
+  // Expiração de senha → força troca no próximo acesso.
+  const pol = await getPolicy();
+  let mustChange = user.must_change;
+  if (!mustChange && pol.expirationDays > 0) {
+    const age = now - user.pwd_changed_at;
+    if (age > pol.expirationDays * 86400000) {
+      mustChange = true;
+      await store.update(user.id, { must_change: true });
+    }
+  }
+  return { ...toProfile(user), mustChange };
 }
 
 /* -------- Criação de contas -------- */
@@ -89,16 +101,22 @@ type CreateInput = {
   approved?: boolean;
   mustChange?: boolean;
 };
-export async function createAccount(input: CreateInput): Promise<Profile> {
+export async function createAccount(input: CreateInput, opts?: { enforcePolicy?: boolean }): Promise<Profile> {
   await init();
   const store = getStore();
   const email = norm(input.email);
   const name = input.name?.trim();
   if (!email || !name || !input.password) throw new Error("Preencha e-mail, nome e senha.");
   if (!isValidEmail(email)) throw new Error("Informe um e-mail válido.");
-  if (input.password.length < 6) throw new Error("A senha deve ter ao menos 6 caracteres.");
+  if (opts?.enforcePolicy !== false) {
+    const err = validatePassword(input.password, await getPolicy());
+    if (err) throw new Error(err);
+  } else if (input.password.length < 6) {
+    throw new Error("A senha deve ter ao menos 6 caracteres.");
+  }
   if (await store.findByEmail(email)) throw new Error("Este e-mail já está cadastrado.");
 
+  const now = Date.now();
   const row: UserRow = {
     id: randomUUID(),
     email,
@@ -110,7 +128,9 @@ export async function createAccount(input: CreateInput): Promise<Profile> {
     must_change: input.mustChange ?? false,
     failed_attempts: 0,
     locked_until: null,
-    created_at: Date.now(),
+    created_at: now,
+    pwd_changed_at: now,
+    pwd_history: [],
   };
   await store.insert(row);
   return toProfile(row);
@@ -130,25 +150,47 @@ export async function listProfiles(): Promise<Profile[]> {
 type Patch = { name?: string; role?: Role; approved?: boolean; active?: boolean; password?: string };
 export async function updateUser(id: string, patch: Patch): Promise<void> {
   await init();
+  const store = getStore();
   const fields: Partial<UserRow> = {};
   if (typeof patch.name === "string") fields.name = patch.name.trim();
   if (patch.role) fields.role = patch.role;
   if (typeof patch.approved === "boolean") fields.approved = patch.approved;
   if (typeof patch.active === "boolean") fields.active = patch.active;
   if (patch.password) {
-    if (patch.password.length < 6) throw new Error("A senha deve ter ao menos 6 caracteres.");
+    const err = validatePassword(patch.password, await getPolicy());
+    if (err) throw new Error(err);
+    const user = await store.findById(id);
     fields.password_hash = await bcrypt.hash(patch.password, 10);
     fields.must_change = true; // admin redefiniu → troca no próximo acesso
+    fields.pwd_changed_at = Date.now();
+    if (user) fields.pwd_history = [user.password_hash, ...user.pwd_history].slice(0, HISTORY_KEEP);
   }
-  await getStore().update(id, fields);
+  await store.update(id, fields);
 }
 
-// Troca de senha pelo próprio usuário (limpa a obrigatoriedade).
+// Troca de senha pelo próprio usuário (valida política e evita reuso).
 export async function selfChangePassword(id: string, newPassword: string): Promise<void> {
   await init();
-  if (!newPassword || newPassword.length < 6) throw new Error("A senha deve ter ao menos 6 caracteres.");
-  await getStore().update(id, {
+  const store = getStore();
+  const user = await store.findById(id);
+  if (!user) throw new Error("Usuário não encontrado.");
+  const pol = await getPolicy();
+  const err = validatePassword(newPassword, pol);
+  if (err) throw new Error(err);
+
+  if (pol.preventReuse > 0) {
+    const recentes = [user.password_hash, ...user.pwd_history].slice(0, pol.preventReuse);
+    for (const h of recentes) {
+      if (await bcrypt.compare(newPassword, h)) {
+        throw new Error(`Você não pode reutilizar as últimas ${pol.preventReuse} senhas.`);
+      }
+    }
+  }
+
+  await store.update(id, {
     password_hash: await bcrypt.hash(newPassword, 10),
+    pwd_history: [user.password_hash, ...user.pwd_history].slice(0, HISTORY_KEEP),
+    pwd_changed_at: Date.now(),
     must_change: false,
     failed_attempts: 0,
     locked_until: null,
@@ -171,7 +213,6 @@ export async function ensureAdminSeed(): Promise<void> {
   const store = getStore();
   if (await store.findByEmail(email)) return;
 
-  // Converte um admin legado (seed antigo por "usuário") para o novo e-mail.
   const legacy = norm(process.env.ADMIN_USERNAME || "");
   if (legacy && legacy !== email) {
     const old = await store.findByEmail(legacy);
@@ -181,8 +222,9 @@ export async function ensureAdminSeed(): Promise<void> {
     }
   }
 
-  if (!isValidEmail(email)) return; // evita semear um admin com "usuário" inválido
-  await createAccount({ email, name, password, role: "admin", approved: true, mustChange: false });
+  if (!isValidEmail(email)) return;
+  // Seed não passa pela política (evita travar a subida por senha "fraca").
+  await createAccount({ email, name, password, role: "admin", approved: true, mustChange: false }, { enforcePolicy: false });
 }
 
 /* -------- Auditoria -------- */
