@@ -29,7 +29,10 @@ Controlar o acesso, manter a segurança, auditar o uso e entender que tipos de d
 Não vendemos nem compartilhamos seus dados com terceiros. O acesso aos registros é restrito à administração do Broto.
 
 ## 5. Seus direitos
-Conforme a LGPD, você pode solicitar acesso, correção ou exclusão dos seus dados cadastrais pelo contato com o administrador responsável.
+Conforme a LGPD, você pode solicitar acesso, correção ou exclusão dos seus dados cadastrais.
+
+## 6. Contato
+Dúvidas ou solicitações sobre seus dados: privacidade@broto.com.br
 
 O aceite desta Política (data, hora e nome) fica registrado no log de auditoria.`,
 };
