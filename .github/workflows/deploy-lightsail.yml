@@ -1,0 +1,35 @@
+name: Deploy (Lightsail)
+
+# A cada push na main (ou disparo manual), atualiza a aplicação na instância
+# Lightsail por SSH: git pull + rebuild do container.
+# Requer dois secrets no repositório:
+#   LIGHTSAIL_HOST     -> IP público da instância (ex.: 18.231.243.131)
+#   LIGHTSAIL_SSH_KEY  -> conteúdo do arquivo .pem (chave privada, com BEGIN/END)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-lightsail
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Atualizar a instância via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ubuntu
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          command_timeout: 20m
+          script: |
+            set -e
+            cd ~/doc-broto
+            git fetch origin main
+            git reset --hard origin/main
+            sudo docker compose -f docker-compose.prod.yml up -d --build
+            sudo docker image prune -f
