@@ -5,7 +5,9 @@ import { showToast } from "./toast";
 export function downloadBlob(data: Uint8Array | Blob, filename: string, type = "application/pdf") {
   const blob = data instanceof Blob ? data : new Blob([data as BlobPart], { type });
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("broto:result", { detail: { blob, filename } }));
+    window.dispatchEvent(
+      new CustomEvent("broto:result", { detail: { blob, filename, path: window.location.pathname } })
+    );
   } else {
     performDownload(blob, filename);
   }

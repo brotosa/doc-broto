@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { performDownload, formatBytes } from "@/lib/download";
 
-type R = { blob: Blob; filename: string };
+type R = { blob: Blob; filename: string; path: string };
 
 // Tela de "Arquivo pronto" — aparece ao concluir qualquer ferramenta.
 export function ResultOverlay() {
   const [data, setData] = useState<R | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const h = (e: Event) => {
@@ -20,6 +21,16 @@ export function ResultOverlay() {
   }, []);
 
   if (!data) return null;
+
+  // "Gerar novo": recarrega a MESMA ferramenta (form limpo).
+  const gerarNovo = () => {
+    window.location.href = data.path || "/";
+  };
+  // "Todas as ferramentas": fecha a tela e vai para a home.
+  const irHome = () => {
+    setData(null);
+    router.push("/");
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#F4F5FB] px-4">
@@ -39,15 +50,15 @@ export function ResultOverlay() {
           ⤓ Baixar arquivo
         </button>
         <button
-          onClick={() => window.location.reload()}
+          onClick={gerarNovo}
           className="mt-3 w-full rounded-xl border border-gray-200 py-2.5 font-semibold text-gray-600 transition hover:bg-gray-50"
         >
           ↻ Gerar novo
         </button>
 
-        <Link href="/" className="mt-5 inline-block text-sm text-gray-400 transition hover:text-brand">
+        <button onClick={irHome} className="mt-5 inline-block text-sm text-gray-400 transition hover:text-brand">
           ← Todas as ferramentas
-        </Link>
+        </button>
       </div>
     </div>
   );
