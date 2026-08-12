@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BrotoLogo } from "@/components/Logo";
+import { Modal } from "@/components/Modal";
+import { PrivacyPolicyText, POLICY_VERSION } from "@/components/PrivacyPolicyText";
 
 type Msg = { t: "err" | "ok"; m: string } | null;
 
@@ -14,6 +16,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState<Msg>(null);
   const [loading, setLoading] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const [showPolicy, setShowPolicy] = useState(false);
 
   useEffect(() => {
     // Garante que o primeiro admin exista.
@@ -44,13 +48,17 @@ export default function LoginPage() {
 
   async function criar(e: React.FormEvent) {
     e.preventDefault();
+    if (!accepted) {
+      setMsg({ t: "err", m: "É preciso ler e aceitar a Política de Privacidade." });
+      return;
+    }
     setLoading(true);
     setMsg(null);
     try {
       const r = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, name, password }),
+        body: JSON.stringify({ email, name, password, acceptedPrivacy: true, policyVersion: POLICY_VERSION }),
       });
       const d = await r.json();
       if (!r.ok) {
@@ -61,6 +69,7 @@ export default function LoginPage() {
       setTab("entrar");
       setName("");
       setPassword("");
+      setAccepted(false);
     } finally {
       setLoading(false);
     }
@@ -109,6 +118,28 @@ export default function LoginPage() {
             <input type="password" className={`mt-1 ${input}`} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={isEntrar ? "current-password" : "new-password"} required />
           </label>
 
+          {!isEntrar && (
+            <label className="flex items-start gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={accepted}
+                onChange={(e) => setAccepted(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-brand"
+              />
+              <span>
+                Li e aceito a{" "}
+                <button
+                  type="button"
+                  onClick={() => setShowPolicy(true)}
+                  className="font-semibold text-brand underline hover:opacity-80"
+                >
+                  Política de Privacidade
+                </button>
+                .
+              </span>
+            </label>
+          )}
+
           {msg && (
             <p className={`rounded-lg px-3 py-2 text-sm ${msg.t === "err" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
               {msg.m}
@@ -117,7 +148,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (!isEntrar && !accepted)}
             className="mt-1 w-full rounded-xl bg-brand py-2.5 font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
           >
             {loading ? "Aguarde…" : isEntrar ? "Entrar" : "Enviar cadastro"}
@@ -127,6 +158,20 @@ export default function LoginPage() {
       <p className="mt-4 text-center text-xs text-gray-400">
         Broto PDF — acesso restrito. Novos cadastros passam por aprovação.
       </p>
+
+      <Modal open={showPolicy} title="Política de Privacidade" onClose={() => setShowPolicy(false)}>
+        <div className="max-h-[60vh] overflow-y-auto pr-1">
+          <PrivacyPolicyText />
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={() => { setAccepted(true); setShowPolicy(false); }}
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+          >
+            Li e aceito
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }
