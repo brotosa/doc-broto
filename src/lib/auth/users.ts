@@ -228,7 +228,7 @@ export async function ensureAdminSeed(): Promise<void> {
 }
 
 /* -------- Auditoria -------- */
-export type AuditEntry = { action: string; byName?: string; targetName?: string; detail?: string; at?: number };
+export type AuditEntry = { action: string; byName?: string; targetName?: string; detail?: string; at?: number; category?: string };
 export async function audit(e: AuditEntry): Promise<void> {
   try {
     await init();
@@ -238,18 +238,25 @@ export async function audit(e: AuditEntry): Promise<void> {
       by_name: e.byName ?? null,
       target_name: e.targetName ?? null,
       detail: e.detail ?? null,
+      category: e.category ?? "system",
     });
   } catch {
     /* auditoria nunca deve quebrar a ação principal */
   }
 }
-export async function listAudit(limit = 100): Promise<AuditEntry[]> {
+// Registra o uso de uma ferramenta (categoria "activity"): quem, o quê e em
+// qual arquivo. targetName = nome do arquivo; detail = ferramenta (slug).
+export async function logActivity(e: { byName?: string; action: string; fileName?: string; tool?: string }): Promise<void> {
+  return audit({ category: "activity", action: e.action, byName: e.byName, targetName: e.fileName, detail: e.tool });
+}
+export async function listAudit(limit = 100, category = "system"): Promise<AuditEntry[]> {
   await init();
-  return (await getStore().listAudit(limit)).map((r) => ({
+  return (await getStore().listAudit(limit, category)).map((r) => ({
     action: r.action,
     byName: r.by_name ?? undefined,
     targetName: r.target_name ?? undefined,
     detail: r.detail ?? undefined,
     at: r.at,
+    category: r.category ?? "system",
   }));
 }

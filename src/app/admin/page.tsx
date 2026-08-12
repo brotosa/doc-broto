@@ -28,9 +28,10 @@ const input = "rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none 
 const LOG_PAGE_SIZE = 20;
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"config" | "logs">("config");
+  const [tab, setTab] = useState<"config" | "logs" | "activity">("config");
   const [users, setUsers] = useState<Profile[]>([]);
   const [audit, setAudit] = useState<Audit[]>([]);
+  const [activity, setActivity] = useState<Audit[]>([]);
   const [logPage, setLogPage] = useState(0);
 
   // filtros do log
@@ -53,13 +54,15 @@ export default function AdminPage() {
   const [policyMsg, setPolicyMsg] = useState("");
 
   const load = useCallback(async () => {
-    const [u, a, p] = await Promise.all([
+    const [u, a, p, act] = await Promise.all([
       fetch("/api/admin/users").then((r) => r.json()),
       fetch("/api/admin/audit").then((r) => r.json()),
       fetch("/api/admin/policy").then((r) => r.json()),
+      fetch("/api/admin/activity").then((r) => r.json()),
     ]);
     setUsers(u.users || []);
     setAudit(a.entries || []);
+    setActivity(act.entries || []);
     if (p.policy) setPolicy(p.policy);
   }, []);
 
@@ -138,21 +141,24 @@ export default function AdminPage() {
   );
   const setP = (k: keyof Policy, v: number | boolean) => setPolicy((p) => (p ? { ...p, [k]: v } : p));
 
+  // fonte do log conforme a aba (system x atividade)
+  const source = tab === "activity" ? activity : audit;
+
   // opções derivadas para os selects de filtro
   const actionOpts = useMemo(
-    () => Array.from(new Set(audit.map((a) => a.action).filter(Boolean))).sort() as string[],
-    [audit]
+    () => Array.from(new Set(source.map((a) => a.action).filter(Boolean))).sort() as string[],
+    [source]
   );
   const userOpts = useMemo(
-    () => Array.from(new Set(audit.map((a) => a.byName).filter(Boolean))).sort() as string[],
-    [audit]
+    () => Array.from(new Set(source.map((a) => a.byName).filter(Boolean))).sort() as string[],
+    [source]
   );
 
   const filtered = useMemo(() => {
     const q = fText.trim().toLowerCase();
     const from = fFrom ? new Date(`${fFrom}T00:00:00`).getTime() : null;
     const to = fTo ? new Date(`${fTo}T23:59:59.999`).getTime() : null;
-    return audit.filter((a) => {
+    return source.filter((a) => {
       if (fAction && a.action !== fAction) return false;
       if (fUser && a.byName !== fUser) return false;
       if (from !== null || to !== null) {
@@ -166,19 +172,21 @@ export default function AdminPage() {
       }
       return true;
     });
-  }, [audit, fText, fAction, fUser, fFrom, fTo]);
+  }, [source, fText, fAction, fUser, fFrom, fTo]);
 
   const hasFilter = !!(fText || fAction || fUser || fFrom || fTo);
   const clearFilters = () => { setFText(""); setFAction(""); setFUser(""); setFFrom(""); setFTo(""); };
 
   // volta para a 1ª página sempre que o filtro muda
   useEffect(() => { setLogPage(0); }, [fText, fAction, fUser, fFrom, fTo]);
+  // ao trocar de aba, limpa filtros e volta à 1ª página
+  useEffect(() => { clearFilters(); setLogPage(0); }, [tab]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / LOG_PAGE_SIZE));
   const page = Math.min(logPage, totalPages - 1);
   const pageItems = filtered.slice(page * LOG_PAGE_SIZE, page * LOG_PAGE_SIZE + LOG_PAGE_SIZE);
 
-  const tabBtn = (key: "config" | "logs", label: string, count?: number) => (
+  const tabBtn = (key: "config" | "logs" | "activity", label: string, count?: number) => (
     <button
       onClick={() => setTab(key)}
       className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${tab === key ? "bg-white text-brand shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
@@ -199,6 +207,7 @@ export default function AdminPage() {
       <div className="inline-flex w-fit gap-1 rounded-xl bg-gray-100 p-1">
         {tabBtn("config", "Configurações", pend)}
         {tabBtn("logs", "Logs")}
+        {tabBtn("activity", "Atividade")}
       </div>
 
       {tab === "config" ? (
@@ -325,12 +334,14 @@ export default function AdminPage() {
           )}
         </div>
       ) : (
-        /* ---------------- Aba Logs ---------------- */
+        /* ------------- Abas Logs / Atividade ------------- */
         <div className="rounded-2xl border border-gray-100 bg-white p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-gray-400">Log de auditoria</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-gray-400">
+              {tab === "activity" ? "Log de atividade dos usuários" : "Log de auditoria"}
+            </h2>
             <span className="text-xs text-gray-400">
-              {hasFilter ? `${filtered.length} de ${audit.length}` : `${audit.length}`} registro(s)
+              {hasFilter ? `${filtered.length} de ${source.length}` : `${source.length}`} registro(s)
             </span>
           </div>
 
@@ -340,13 +351,13 @@ export default function AdminPage() {
               <label className="mb-1 text-xs font-semibold text-gray-500">Buscar</label>
               <input
                 className={input}
-                placeholder="Usuário, ação, alvo ou detalhe…"
+                placeholder={tab === "activity" ? "Usuário, ferramenta ou arquivo…" : "Usuário, ação, alvo ou detalhe…"}
                 value={fText}
                 onChange={(e) => setFText(e.target.value)}
               />
             </div>
             <div className="flex flex-col">
-              <label className="mb-1 text-xs font-semibold text-gray-500">Ação</label>
+              <label className="mb-1 text-xs font-semibold text-gray-500">{tab === "activity" ? "Ferramenta" : "Ação"}</label>
               <select className={input} value={fAction} onChange={(e) => setFAction(e.target.value)}>
                 <option value="">Todas</option>
                 {actionOpts.map((a) => <option key={a} value={a}>{a}</option>)}
@@ -384,9 +395,18 @@ export default function AdminPage() {
                   <th className="px-3 py-2.5">Data</th>
                   <th className="px-3 py-2.5">Hora</th>
                   <th className="px-3 py-2.5">Usuário</th>
-                  <th className="px-3 py-2.5">Ação</th>
-                  <th className="px-3 py-2.5">Alvo</th>
-                  <th className="px-3 py-2.5">Detalhe</th>
+                  {tab === "activity" ? (
+                    <>
+                      <th className="px-3 py-2.5">Ferramenta</th>
+                      <th className="px-3 py-2.5">Arquivo</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="px-3 py-2.5">Ação</th>
+                      <th className="px-3 py-2.5">Alvo</th>
+                      <th className="px-3 py-2.5">Detalhe</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -397,16 +417,25 @@ export default function AdminPage() {
                       <td className="whitespace-nowrap px-3 py-2.5 text-gray-500">{d ? d.toLocaleDateString("pt-BR") : "—"}</td>
                       <td className="whitespace-nowrap px-3 py-2.5 text-gray-500">{d ? d.toLocaleTimeString("pt-BR") : "—"}</td>
                       <td className="px-3 py-2.5 font-semibold text-gray-800">{a.byName || "—"}</td>
-                      <td className="px-3 py-2.5 text-gray-600">{a.action}</td>
-                      <td className="px-3 py-2.5 font-medium text-brand">{a.targetName || "—"}</td>
-                      <td className="px-3 py-2.5 text-gray-400">{a.detail || "—"}</td>
+                      {tab === "activity" ? (
+                        <>
+                          <td className="px-3 py-2.5 text-gray-600">{a.action}</td>
+                          <td className="px-3 py-2.5 font-medium text-brand break-all">{a.targetName || "—"}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-3 py-2.5 text-gray-600">{a.action}</td>
+                          <td className="px-3 py-2.5 font-medium text-brand">{a.targetName || "—"}</td>
+                          <td className="px-3 py-2.5 text-gray-400">{a.detail || "—"}</td>
+                        </>
+                      )}
                     </tr>
                   );
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-3 py-8 text-center text-gray-400">
-                      {audit.length === 0 ? "Sem registros ainda." : "Nenhum registro para os filtros aplicados."}
+                    <td colSpan={tab === "activity" ? 5 : 6} className="px-3 py-8 text-center text-gray-400">
+                      {source.length === 0 ? "Sem registros ainda." : "Nenhum registro para os filtros aplicados."}
                     </td>
                   </tr>
                 )}

@@ -28,6 +28,8 @@ export type AuditRow = {
   by_name: string | null;
   target_name: string | null;
   detail: string | null;
+  // "system" = login/gestão de usuários; "activity" = uso das ferramentas.
+  category?: string;
 };
 
 export interface Store {
@@ -40,7 +42,7 @@ export interface Store {
   remove(id: string): Promise<void>;
   count(): Promise<number>;
   addAudit(row: AuditRow): Promise<void>;
-  listAudit(limit: number): Promise<AuditRow[]>;
+  listAudit(limit: number, category?: string): Promise<AuditRow[]>;
   getSetting<T>(key: string): Promise<T | null>;
   setSetting<T>(key: string, value: T): Promise<void>;
 }
@@ -76,10 +78,11 @@ class MemStore implements Store {
     return this.users.size;
   }
   async addAudit(row: AuditRow) {
-    this.audit.unshift(row);
+    this.audit.unshift({ category: "system", ...row });
   }
-  async listAudit(limit: number) {
-    return this.audit.slice(0, limit);
+  async listAudit(limit: number, category?: string) {
+    const src = category ? this.audit.filter((r) => (r.category ?? "system") === category) : this.audit;
+    return src.slice(0, limit);
   }
   async getSetting<T>(key: string) {
     return (this.settings.get(key) as T) ?? null;
@@ -143,6 +146,8 @@ class PgStore implements Store {
         END $$;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS pwd_changed_at timestamptz NOT NULL DEFAULT now();
         ALTER TABLE users ADD COLUMN IF NOT EXISTS pwd_history text[] NOT NULL DEFAULT '{}';
+        ALTER TABLE audit ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'system';
+        CREATE INDEX IF NOT EXISTS audit_category_at_idx ON audit (category, at DESC);
       `);
     })();
     return this.ready;
@@ -220,19 +225,22 @@ class PgStore implements Store {
   async addAudit(a: AuditRow) {
     const pool = await this.getPool();
     await pool.query(
-      "INSERT INTO audit (at,action,by_name,target_name,detail) VALUES (to_timestamp($1/1000.0),$2,$3,$4,$5)",
-      [a.at, a.action, a.by_name, a.target_name, a.detail]
+      "INSERT INTO audit (at,action,by_name,target_name,detail,category) VALUES (to_timestamp($1/1000.0),$2,$3,$4,$5,$6)",
+      [a.at, a.action, a.by_name, a.target_name, a.detail, a.category ?? "system"]
     );
   }
-  async listAudit(limit: number) {
+  async listAudit(limit: number, category?: string) {
     const pool = await this.getPool();
-    const { rows } = await pool.query("SELECT * FROM audit ORDER BY at DESC LIMIT $1", [limit]);
+    const { rows } = category
+      ? await pool.query("SELECT * FROM audit WHERE category=$1 ORDER BY at DESC LIMIT $2", [category, limit])
+      : await pool.query("SELECT * FROM audit ORDER BY at DESC LIMIT $1", [limit]);
     return rows.map((r) => ({
       at: new Date(r.at).getTime(),
       action: r.action,
       by_name: r.by_name,
       target_name: r.target_name,
       detail: r.detail,
+      category: r.category ?? "system",
     }));
   }
   async getSetting<T>(key: string) {
