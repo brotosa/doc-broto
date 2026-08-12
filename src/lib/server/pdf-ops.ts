@@ -97,6 +97,28 @@ export async function compressPdf(input: Buffer, level: keyof typeof GS_PRESETS)
   });
 }
 
+/** Convert a PDF to grayscale (black & white) via Ghostscript. */
+export async function grayscalePdf(input: Buffer): Promise<Buffer> {
+  return withWorkspace(async (dir) => {
+    const inPath = join(dir, "in.pdf");
+    const outPath = join(dir, "out.pdf");
+    await writeFile(inPath, input);
+    await run("gs", [
+      "-sDEVICE=pdfwrite",
+      "-dNOPAUSE",
+      "-dBATCH",
+      "-dQUIET",
+      "-sColorConversionStrategy=Gray",
+      "-dProcessColorModel=/DeviceGray",
+      "-dOverrideICC",
+      "-dCompatibilityLevel=1.5",
+      `-sOutputFile=${outPath}`,
+      inPath,
+    ]);
+    return readFile(outPath);
+  });
+}
+
 /** Add owner/user password + encryption to a PDF via qpdf. */
 export async function protectPdf(input: Buffer, password: string): Promise<Buffer> {
   if (!password) throw new ProcessingError("Senha obrigatória.");

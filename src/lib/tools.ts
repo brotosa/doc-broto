@@ -309,6 +309,72 @@ export const TOOLS: Tool[] = [
     glyph: "AБ",
     ready: true,
   },
+  {
+    slug: "extrair-paginas",
+    title: "Extrair páginas",
+    description:
+      "Escolha as páginas que quer manter (ex.: 1-3, 5) e gere um novo PDF só com elas.",
+    category: "organizar",
+    color: "bg-brand text-white",
+    glyph: "⧉",
+    ready: true,
+    isNew: true,
+  },
+  {
+    slug: "remover-paginas",
+    title: "Remover páginas",
+    description:
+      "Apague páginas específicas do PDF (ex.: 2, 6-7) e baixe o documento sem elas.",
+    category: "organizar",
+    color: "bg-brand text-white",
+    glyph: "⌫",
+    ready: true,
+    isNew: true,
+  },
+  {
+    slug: "pdf-para-csv",
+    title: "PDF para CSV",
+    description:
+      "Extraia tabelas do PDF para um arquivo CSV, pronto para abrir em qualquer planilha.",
+    category: "converter",
+    color: "bg-brand-green text-white",
+    glyph: "C",
+    ready: true,
+    isNew: true,
+  },
+  {
+    slug: "tons-de-cinza",
+    title: "PDF em tons de cinza",
+    description:
+      "Converta um PDF colorido para preto e branco (escala de cinza) — economiza tinta e reduz o tamanho.",
+    category: "otimizar",
+    color: "bg-brand text-white",
+    glyph: "◑",
+    ready: true,
+    isNew: true,
+  },
+  {
+    slug: "achatar-pdf",
+    title: "Achatar formulário",
+    description:
+      "Congele os campos preenchidos de um formulário para que ninguém mais consiga editá-los.",
+    category: "editar",
+    color: "bg-brand-green text-white",
+    glyph: "▤",
+    ready: true,
+    isNew: true,
+  },
+  {
+    slug: "editar-metadados",
+    title: "Editar metadados",
+    description:
+      "Altere título, autor, assunto e palavras-chave do PDF em poucos segundos.",
+    category: "editar",
+    color: "bg-brand-green text-white",
+    glyph: "ℹ",
+    ready: true,
+    isNew: true,
+  },
 ];
 
 export const READY_TOOLS = TOOLS.filter((t) => t.ready);
