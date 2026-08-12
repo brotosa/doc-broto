@@ -20,6 +20,8 @@ export default function RootLayout({
         <main className="mx-auto max-w-7xl px-4 py-8">{children}</main>
         <footer className="mx-auto max-w-7xl px-4 py-10 text-center text-sm text-gray-400">
           Broto © {new Date().getFullYear()} — Seu jeito digital de fazer agro.
+          <span className="mx-2">·</span>
+          <a href="/privacidade" className="underline hover:text-brand">Política de Privacidade</a>
         </footer>
       </body>
     </html>
