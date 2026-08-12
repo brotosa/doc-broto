@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/Modal";
 
 type Profile = {
@@ -32,6 +32,13 @@ export default function AdminPage() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [audit, setAudit] = useState<Audit[]>([]);
   const [logPage, setLogPage] = useState(0);
+
+  // filtros do log
+  const [fText, setFText] = useState("");
+  const [fAction, setFAction] = useState("");
+  const [fUser, setFUser] = useState("");
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
   const [err, setErr] = useState("");
   const [novo, setNovo] = useState({ email: "", name: "", password: "", role: "comum" });
 
@@ -131,9 +138,45 @@ export default function AdminPage() {
   );
   const setP = (k: keyof Policy, v: number | boolean) => setPolicy((p) => (p ? { ...p, [k]: v } : p));
 
-  const totalPages = Math.max(1, Math.ceil(audit.length / LOG_PAGE_SIZE));
+  // opções derivadas para os selects de filtro
+  const actionOpts = useMemo(
+    () => Array.from(new Set(audit.map((a) => a.action).filter(Boolean))).sort() as string[],
+    [audit]
+  );
+  const userOpts = useMemo(
+    () => Array.from(new Set(audit.map((a) => a.byName).filter(Boolean))).sort() as string[],
+    [audit]
+  );
+
+  const filtered = useMemo(() => {
+    const q = fText.trim().toLowerCase();
+    const from = fFrom ? new Date(`${fFrom}T00:00:00`).getTime() : null;
+    const to = fTo ? new Date(`${fTo}T23:59:59.999`).getTime() : null;
+    return audit.filter((a) => {
+      if (fAction && a.action !== fAction) return false;
+      if (fUser && a.byName !== fUser) return false;
+      if (from !== null || to !== null) {
+        if (!a.at) return false;
+        if (from !== null && a.at < from) return false;
+        if (to !== null && a.at > to) return false;
+      }
+      if (q) {
+        const hay = `${a.byName || ""} ${a.action || ""} ${a.targetName || ""} ${a.detail || ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [audit, fText, fAction, fUser, fFrom, fTo]);
+
+  const hasFilter = !!(fText || fAction || fUser || fFrom || fTo);
+  const clearFilters = () => { setFText(""); setFAction(""); setFUser(""); setFFrom(""); setFTo(""); };
+
+  // volta para a 1ª página sempre que o filtro muda
+  useEffect(() => { setLogPage(0); }, [fText, fAction, fUser, fFrom, fTo]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / LOG_PAGE_SIZE));
   const page = Math.min(logPage, totalPages - 1);
-  const pageItems = audit.slice(page * LOG_PAGE_SIZE, page * LOG_PAGE_SIZE + LOG_PAGE_SIZE);
+  const pageItems = filtered.slice(page * LOG_PAGE_SIZE, page * LOG_PAGE_SIZE + LOG_PAGE_SIZE);
 
   const tabBtn = (key: "config" | "logs", label: string, count?: number) => (
     <button
@@ -284,28 +327,97 @@ export default function AdminPage() {
       ) : (
         /* ---------------- Aba Logs ---------------- */
         <div className="rounded-2xl border border-gray-100 bg-white p-5">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-bold uppercase tracking-wide text-gray-400">Log de auditoria</h2>
-            <span className="text-xs text-gray-400">{audit.length} registro(s)</span>
+            <span className="text-xs text-gray-400">
+              {hasFilter ? `${filtered.length} de ${audit.length}` : `${audit.length}`} registro(s)
+            </span>
           </div>
 
-          <div className="flex flex-col divide-y divide-gray-50">
-            {pageItems.map((a, i) => (
-              <div key={page * LOG_PAGE_SIZE + i} className="flex flex-wrap items-center gap-x-2 py-2.5 text-sm text-gray-600">
-                <span className="w-40 shrink-0 text-gray-400">{a.at ? new Date(a.at).toLocaleString("pt-BR") : ""}</span>
-                <span className="font-semibold text-gray-800">{a.byName || "—"}</span>
-                <span>{a.action}</span>
-                {a.targetName && <span className="font-medium text-brand">{a.targetName}</span>}
-                {a.detail && <span className="text-gray-400">({a.detail})</span>}
-              </div>
-            ))}
-            {audit.length === 0 && <p className="py-6 text-center text-sm text-gray-400">Sem registros ainda.</p>}
+          {/* filtros */}
+          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl bg-gray-50 p-3">
+            <div className="flex min-w-[180px] flex-1 flex-col">
+              <label className="mb-1 text-xs font-semibold text-gray-500">Buscar</label>
+              <input
+                className={input}
+                placeholder="Usuário, ação, alvo ou detalhe…"
+                value={fText}
+                onChange={(e) => setFText(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col">
+              <label className="mb-1 text-xs font-semibold text-gray-500">Ação</label>
+              <select className={input} value={fAction} onChange={(e) => setFAction(e.target.value)}>
+                <option value="">Todas</option>
+                {actionOpts.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col">
+              <label className="mb-1 text-xs font-semibold text-gray-500">Usuário</label>
+              <select className={input} value={fUser} onChange={(e) => setFUser(e.target.value)}>
+                <option value="">Todos</option>
+                {userOpts.map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col">
+              <label className="mb-1 text-xs font-semibold text-gray-500">De</label>
+              <input type="date" className={input} value={fFrom} onChange={(e) => setFFrom(e.target.value)} />
+            </div>
+            <div className="flex flex-col">
+              <label className="mb-1 text-xs font-semibold text-gray-500">Até</label>
+              <input type="date" className={input} value={fTo} onChange={(e) => setFTo(e.target.value)} />
+            </div>
+            {hasFilter && (
+              <button
+                onClick={clearFilters}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100"
+              >
+                Limpar filtros
+              </button>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <thead className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
+                <tr>
+                  <th className="px-3 py-2.5">Data</th>
+                  <th className="px-3 py-2.5">Hora</th>
+                  <th className="px-3 py-2.5">Usuário</th>
+                  <th className="px-3 py-2.5">Ação</th>
+                  <th className="px-3 py-2.5">Alvo</th>
+                  <th className="px-3 py-2.5">Detalhe</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageItems.map((a, i) => {
+                  const d = a.at ? new Date(a.at) : null;
+                  return (
+                    <tr key={page * LOG_PAGE_SIZE + i} className="border-b border-gray-50 last:border-0">
+                      <td className="whitespace-nowrap px-3 py-2.5 text-gray-500">{d ? d.toLocaleDateString("pt-BR") : "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-gray-500">{d ? d.toLocaleTimeString("pt-BR") : "—"}</td>
+                      <td className="px-3 py-2.5 font-semibold text-gray-800">{a.byName || "—"}</td>
+                      <td className="px-3 py-2.5 text-gray-600">{a.action}</td>
+                      <td className="px-3 py-2.5 font-medium text-brand">{a.targetName || "—"}</td>
+                      <td className="px-3 py-2.5 text-gray-400">{a.detail || "—"}</td>
+                    </tr>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-8 text-center text-gray-400">
+                      {audit.length === 0 ? "Sem registros ainda." : "Nenhum registro para os filtros aplicados."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
 
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 text-sm">
               <span className="text-gray-500">
-                {page * LOG_PAGE_SIZE + 1}–{Math.min((page + 1) * LOG_PAGE_SIZE, audit.length)} de {audit.length}
+                {page * LOG_PAGE_SIZE + 1}–{Math.min((page + 1) * LOG_PAGE_SIZE, filtered.length)} de {filtered.length}
               </span>
               <div className="flex items-center gap-2">
                 <button
