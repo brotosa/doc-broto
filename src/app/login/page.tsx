@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BrotoLogo } from "@/components/Logo";
 import { Modal } from "@/components/Modal";
-import { PrivacyPolicyText, POLICY_VERSION } from "@/components/PrivacyPolicyText";
+import { PrivacyPolicyBody } from "@/components/PrivacyPolicyText";
+
+type Privacy = { version: string; date: string; content: string };
 
 type Msg = { t: "err" | "ok"; m: string } | null;
 
@@ -18,10 +20,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [showPolicy, setShowPolicy] = useState(false);
+  const [privacy, setPrivacy] = useState<Privacy | null>(null);
 
   useEffect(() => {
     // Garante que o primeiro admin exista.
     fetch("/api/auth/bootstrap").catch(() => {});
+    // Carrega a Política de Privacidade vigente (para exibir e registrar a versão).
+    fetch("/api/privacy").then((r) => r.json()).then((d) => setPrivacy(d.privacy)).catch(() => {});
   }, []);
 
   async function entrar(e: React.FormEvent) {
@@ -58,7 +63,7 @@ export default function LoginPage() {
       const r = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, name, password, acceptedPrivacy: true, policyVersion: POLICY_VERSION }),
+        body: JSON.stringify({ email, name, password, acceptedPrivacy: true, policyVersion: privacy?.version }),
       });
       const d = await r.json();
       if (!r.ok) {
@@ -161,7 +166,11 @@ export default function LoginPage() {
 
       <Modal open={showPolicy} title="Política de Privacidade" onClose={() => setShowPolicy(false)}>
         <div className="max-h-[60vh] overflow-y-auto pr-1">
-          <PrivacyPolicyText />
+          {privacy ? (
+            <PrivacyPolicyBody version={privacy.version} date={privacy.date} content={privacy.content} />
+          ) : (
+            <p className="text-sm text-gray-400">Carregando…</p>
+          )}
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <button

@@ -9,7 +9,7 @@ export async function middleware(req: NextRequest) {
   // Endpoints de autenticação são sempre liberados (login/cadastro/logout).
   if (pathname.startsWith("/api/auth")) return NextResponse.next();
   // A Política de Privacidade é pública (linkada no cadastro e no rodapé).
-  if (pathname === "/privacidade") return NextResponse.next();
+  if (pathname === "/privacidade" || pathname === "/api/privacy") return NextResponse.next();
 
   const session = await verifySession(req.cookies.get("broto_session")?.value);
   const isApi = pathname.startsWith("/api");

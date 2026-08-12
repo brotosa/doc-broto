@@ -53,17 +53,23 @@ export default function AdminPage() {
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [policyMsg, setPolicyMsg] = useState("");
 
+  // política de privacidade (texto editável)
+  const [privacy, setPrivacy] = useState<{ version: string; date: string; content: string } | null>(null);
+  const [privacyMsg, setPrivacyMsg] = useState("");
+
   const load = useCallback(async () => {
-    const [u, a, p, act] = await Promise.all([
+    const [u, a, p, act, pv] = await Promise.all([
       fetch("/api/admin/users").then((r) => r.json()),
       fetch("/api/admin/audit").then((r) => r.json()),
       fetch("/api/admin/policy").then((r) => r.json()),
       fetch("/api/admin/activity").then((r) => r.json()),
+      fetch("/api/admin/privacy").then((r) => r.json()),
     ]);
     setUsers(u.users || []);
     setAudit(a.entries || []);
     setActivity(act.entries || []);
     if (p.policy) setPolicy(p.policy);
+    if (pv.privacy) setPrivacy(pv.privacy);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -124,6 +130,21 @@ export default function AdminPage() {
     if (!r.ok) { setPolicyMsg(d.error || "Falha ao salvar."); return; }
     setPolicy(d.policy);
     setPolicyMsg("Política salva ✓");
+  }
+
+  async function savePrivacy(e: React.FormEvent) {
+    e.preventDefault();
+    if (!privacy) return;
+    setPrivacyMsg("");
+    const r = await fetch("/api/admin/privacy", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(privacy),
+    });
+    const d = await r.json();
+    if (!r.ok) { setPrivacyMsg(d.error || "Falha ao salvar."); return; }
+    setPrivacy(d.privacy);
+    setPrivacyMsg("Política de privacidade salva ✓");
   }
 
   const genPassword = () => {
@@ -330,6 +351,49 @@ export default function AdminPage() {
                 <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar política</button>
                 {policyMsg && <span className={`text-sm ${policyMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{policyMsg}</span>}
               </div>
+            </form>
+          )}
+
+          {/* política de privacidade (texto editável) */}
+          {privacy && (
+            <form onSubmit={savePrivacy} className="rounded-2xl border border-gray-100 bg-white p-5">
+              <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-gray-400">Política de privacidade</h2>
+              <p className="mb-4 text-sm text-gray-500">
+                Este texto aparece no cadastro (ao aceitar) e na página pública <b>/privacidade</b>.
+              </p>
+              <div className="mb-3 flex flex-wrap gap-3">
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Versão</span>
+                  <input className={`${input} w-28`} value={privacy.version}
+                    onChange={(e) => setPrivacy({ ...privacy, version: e.target.value })} />
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Data</span>
+                  <input className={`${input} w-40`} value={privacy.date}
+                    onChange={(e) => setPrivacy({ ...privacy, date: e.target.value })} />
+                </label>
+              </div>
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium text-gray-700">Texto</span>
+                <textarea
+                  className={`${input} h-72 w-full font-mono text-xs leading-relaxed`}
+                  value={privacy.content}
+                  onChange={(e) => setPrivacy({ ...privacy, content: e.target.value })}
+                />
+              </label>
+              <p className="mt-1 text-xs text-gray-400">
+                Formatação simples: <code>## Título</code> vira subtítulo, <code>- item</code> vira lista,
+                e uma linha em branco separa parágrafos.
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar texto</button>
+                <a href="/privacidade" target="_blank" className="text-sm text-brand underline hover:opacity-80">Pré-visualizar</a>
+                {privacyMsg && <span className={`text-sm ${privacyMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{privacyMsg}</span>}
+              </div>
+              <p className="mt-2 text-xs text-gray-400">
+                Dica: ao mudar o texto de forma relevante, aumente a <b>versão</b> — cada aceite fica
+                registrado no log com a versão vigente.
+              </p>
             </form>
           )}
         </div>
