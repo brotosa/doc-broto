@@ -2,12 +2,15 @@
 //
 // O LibreOffice importa PDF sempre como documento do Writer/Draw e não tem
 // caminho para o Calc, então "--convert-to xlsx" aborta (código 134/SIGABRT).
-// Aqui fazemos a extração por conta própria: lemos o texto com coordenadas
-// via pdf.js, reconstruímos linhas e colunas por posição e montamos o .xlsx
-// manualmente (OOXML dentro de um zip com jszip). Nenhuma dependência nova.
+// Aqui fazemos a extração por conta própria: pegamos o texto COM COORDENADAS
+// via `pdftotext -bbox` (poppler), reconstruímos linhas e colunas por posição
+// e montamos o .xlsx manualmente (OOXML dentro de um zip com jszip).
+// Nenhuma dependência nova; o poppler-utils já faz parte da imagem.
 
+import { join } from "node:path";
+import { writeFile, readFile } from "node:fs/promises";
 import JSZip from "jszip";
-import { ProcessingError } from "./exec";
+import { run, withWorkspace, ProcessingError } from "./exec";
 
 type Item = { x: number; y: number; w: number; str: string };
 type Cell = { x: number; text: string };
@@ -19,47 +22,60 @@ const COL_TOL = 18; // aproxima inícios de célula para formar colunas
 const MAX_ROWS = 20000;
 const MAX_COLS = 256;
 
-async function loadPdfjs() {
-  // Build "legacy" roda em Node sem depender de APIs de browser.
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  return pdfjs;
+/**
+ * Extrai as linhas (matriz de texto) de cada página do PDF.
+ *
+ * Usa `pdftotext -bbox` (poppler), que devolve um XML com a posição
+ * (xMin/yMin/xMax/yMax) de cada palavra. É robusto no servidor empacotado e
+ * não depende do worker do pdf.js (que não resolve dentro do bundle do Next).
+ */
+async function extractPages(input: Buffer): Promise<string[][][]> {
+  return withWorkspace(async (dir) => {
+    const inPath = join(dir, "in.pdf");
+    const outPath = join(dir, "out.xml");
+    await writeFile(inPath, input);
+    await run("pdftotext", ["-bbox", "-q", inPath, outPath], { timeoutMs: 120_000 });
+    const xml = await readFile(outPath, "utf8");
+    return parseBboxXml(xml);
+  });
 }
 
-/** Extrai as linhas (matriz de texto) de cada página do PDF. */
-async function extractPages(input: Buffer): Promise<string[][][]> {
-  const pdfjs = await loadPdfjs();
-  const data = new Uint8Array(input);
-  const doc = await pdfjs.getDocument({
-    data,
-    isEvalSupported: false,
-    useSystemFonts: true,
-  }).promise;
-
+/** Interpreta o XML do `pdftotext -bbox` em uma matriz por página. */
+function parseBboxXml(xml: string): string[][][] {
   const pages: string[][][] = [];
-  try {
-    for (let p = 1; p <= doc.numPages; p++) {
-      const page = await doc.getPage(p);
-      const viewport = page.getViewport({ scale: 1 });
-      const content = await page.getTextContent();
-
-      const items: Item[] = [];
-      for (const it of content.items as Array<{ str: string; transform: number[]; width: number }>) {
-        const str = (it.str ?? "").replace(/ /g, " ");
-        if (!str.trim()) continue;
-        const x = it.transform[4];
-        const yBottom = it.transform[5];
-        items.push({ x, y: viewport.height - yBottom, w: it.width || 0, str });
-      }
-      page.cleanup();
-      if (!items.length) continue;
-
-      pages.push(itemsToGrid(items));
-      if (pages.reduce((n, g) => n + g.length, 0) > MAX_ROWS) break;
+  const pageRe = /<page\b[^>]*>([\s\S]*?)<\/page>/g;
+  const wordRe = /<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([\s\S]*?)<\/word>/g;
+  let pm: RegExpExecArray | null;
+  let rowCount = 0;
+  while ((pm = pageRe.exec(xml))) {
+    const items: Item[] = [];
+    let wm: RegExpExecArray | null;
+    wordRe.lastIndex = 0;
+    while ((wm = wordRe.exec(pm[1]))) {
+      const xMin = parseFloat(wm[1]);
+      const yMin = parseFloat(wm[2]);
+      const xMax = parseFloat(wm[3]);
+      const str = decodeXml(wm[5]).trim();
+      if (!str) continue;
+      items.push({ x: xMin, y: yMin, w: Math.max(0, xMax - xMin), str });
     }
-  } finally {
-    await doc.destroy();
+    if (!items.length) continue;
+    const grid = itemsToGrid(items);
+    pages.push(grid);
+    rowCount += grid.length;
+    if (rowCount > MAX_ROWS) break;
   }
   return pages;
+}
+
+function decodeXml(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(Number(d)));
 }
 
 /** Agrupa itens em linhas (por y) e colunas (por x) → matriz de strings. */
@@ -93,7 +109,7 @@ function itemsToGrid(items: Item[]): string[][] {
         text = "";
         startX = it.x;
       }
-      text += (text && gap > 1 ? " " : "") + it.str;
+      text += (text ? " " : "") + it.str;
       prevEnd = it.x + it.w;
     }
     if (text.trim()) cells.push({ x: startX, text: text.trim() });
