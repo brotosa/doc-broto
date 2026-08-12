@@ -29,7 +29,7 @@ const MAX_COLS = 256;
  * (xMin/yMin/xMax/yMax) de cada palavra. É robusto no servidor empacotado e
  * não depende do worker do pdf.js (que não resolve dentro do bundle do Next).
  */
-async function extractPages(input: Buffer): Promise<string[][][]> {
+export async function extractPages(input: Buffer): Promise<string[][][]> {
   return withWorkspace(async (dir) => {
     const inPath = join(dir, "in.pdf");
     const outPath = join(dir, "out.xml");
@@ -244,4 +244,22 @@ export async function pdfToXlsx(input: Buffer): Promise<Buffer> {
   const out = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
   if (!out?.length) throw new ProcessingError("Falha ao gerar a planilha.");
   return out;
+}
+
+// Escapa um valor para CSV (RFC 4180): aspas se tiver vírgula, aspas ou quebra.
+function csvCell(v: string): string {
+  return /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+}
+
+/** Converte um PDF em CSV, reconstruindo a tabela a partir do texto. */
+export async function pdfToCsv(input: Buffer): Promise<Buffer> {
+  const pages = await extractPages(input);
+  const chunks: string[] = [];
+  pages.forEach((grid, i) => {
+    if (i > 0) chunks.push(""); // linha em branco separando páginas
+    if (pages.length > 1) chunks.push(`# Página ${i + 1}`);
+    for (const row of grid) chunks.push(row.map(csvCell).join(","));
+  });
+  // BOM para o Excel abrir acentos corretamente.
+  return Buffer.from("﻿" + chunks.join("\r\n"), "utf8");
 }
