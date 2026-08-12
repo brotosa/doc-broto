@@ -6,7 +6,10 @@ export const maxDuration = 300;
 
 export async function POST(request: Request) {
   try {
-    const lang = new URL(request.url).searchParams.get("lang") || "por+eng";
+    // Numa query string, "+" vira espaço ao decodificar. O tesseract separa
+    // múltiplos idiomas por "+", então normalizamos espaços de volta para "+".
+    const raw = new URL(request.url).searchParams.get("lang") || "por+eng";
+    const lang = raw.trim().replace(/\s+/g, "+") || "por+eng";
     const file = await readUpload(request, "file", /\.pdf$/i);
     const out = await ocrPdf(await fileToBuffer(file), lang);
     const base = file.name.replace(/\.pdf$/i, "");
