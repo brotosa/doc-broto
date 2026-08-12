@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Header } from "@/components/Header";
-import { ResultOverlay } from "@/components/ResultOverlay";
 
 export const metadata: Metadata = {
   title: "Broto — Ferramentas de PDF",
@@ -22,7 +21,6 @@ export default function RootLayout({
         <footer className="mx-auto max-w-7xl px-4 py-10 text-center text-sm text-gray-400">
           Broto © {new Date().getFullYear()} — Seu jeito digital de fazer agro.
         </footer>
-        <ResultOverlay />
       </body>
     </html>
   );
