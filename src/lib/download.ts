@@ -1,4 +1,5 @@
 import { showToast } from "./toast";
+import { getTool } from "./tools";
 
 // Ao concluir, NÃO baixa automático: dispara um evento que abre a tela de
 // resultado ("Arquivo pronto"), onde o usuário escolhe Baixar ou Gerar novo.
@@ -8,8 +9,27 @@ export function downloadBlob(data: Uint8Array | Blob, filename: string, type = "
     window.dispatchEvent(
       new CustomEvent("broto:result", { detail: { blob, filename, path: window.location.pathname } })
     );
+    logActivity(filename);
   } else {
     performDownload(blob, filename);
+  }
+}
+
+// Registra o uso da ferramenta no log de atividade (fire-and-forget; nunca
+// atrapalha o resultado). A ferramenta é deduzida pela rota atual.
+function logActivity(filename: string) {
+  try {
+    const slug = window.location.pathname.replace(/^\//, "").split("/")[0];
+    const tool = getTool(slug);
+    if (!tool) return;
+    fetch("/api/activity", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: tool.title, fileName: filename, tool: slug }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    /* ignora */
   }
 }
 
