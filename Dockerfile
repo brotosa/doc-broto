@@ -36,15 +36,22 @@ ENV NODE_ENV=production \
 #  - poppler-utils: extração de texto/imagem (pdftotext)
 #  - tesseract + ocrmypdf: OCR (idiomas por/eng)
 #  - chromium: HTML -> PDF
+#  - python3 + libs (pip): PDF -> Word/PowerPoint/Excel (pdf2docx, PyMuPDF, python-pptx, openpyxl)
 #  - fonts-*: renderização fiel de documentos
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libreoffice-writer libreoffice-calc libreoffice-impress \
       qpdf ghostscript poppler-utils \
       tesseract-ocr tesseract-ocr-por tesseract-ocr-eng ocrmypdf \
       chromium \
+      python3 python3-pip libglib2.0-0 libgl1 libgomp1 \
       fonts-liberation fonts-dejavu-core fontconfig \
       dumb-init \
     && rm -rf /var/lib/apt/lists/*
+
+# Motores de conversão PDF -> Office (Python)
+RUN pip3 install --no-cache-dir --break-system-packages \
+      pdf2docx==0.5.13 python-pptx==1.0.2 openpyxl==3.1.5 \
+    && rm -rf /root/.cache/pip
 
 # Usuário não-root
 RUN groupadd -r broto && useradd -r -g broto -m -d /home/broto broto

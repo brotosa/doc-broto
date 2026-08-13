@@ -1,6 +1,5 @@
 import { readUpload, fileToBuffer, fileResponse, errorResponse } from "@/lib/server/http";
-import { pdfToOffice } from "@/lib/server/pdf-ops";
-import { pdfToXlsx } from "@/lib/server/pdf-to-xlsx";
+import { pdfToOfficePy } from "@/lib/server/pdf-office";
 import { ProcessingError } from "@/lib/server/exec";
 
 export const runtime = "nodejs";
@@ -22,8 +21,7 @@ export async function POST(request: Request) {
     if (!target || !TYPES[target]) throw new ProcessingError("Formato de destino inválido.");
     const file = await readUpload(request, "file", /\.pdf$/i);
     const buf = await fileToBuffer(file);
-    // Excel: extração própria (LibreOffice não converte PDF->Calc e aborta).
-    const out = target === "xlsx" ? await pdfToXlsx(buf) : await pdfToOffice(buf, target);
+    const out = await pdfToOfficePy(buf, target);
     const base = file.name.replace(/\.pdf$/i, "");
     return fileResponse(out, `${base}.${target}`, TYPES[target]);
   } catch (err) {
