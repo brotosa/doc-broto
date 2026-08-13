@@ -190,6 +190,17 @@ export const TOOLS: Tool[] = [
     ready: true,
   },
   {
+    slug: "pdf-para-html",
+    title: "PDF para HTML",
+    description:
+      "Converta o PDF em uma página HTML fiel ao original: layout, imagens e texto selecionável, tudo em um único arquivo.",
+    category: "converter",
+    color: "bg-brand text-white",
+    glyph: "&lt;/&gt;",
+    ready: true,
+    isNew: true,
+  },
+  {
     slug: "desbloquear-pdf",
     title: "Desbloquear PDF",
     description:
