@@ -375,6 +375,72 @@ export const TOOLS: Tool[] = [
     ready: true,
     isNew: true,
   },
+  {
+    slug: "dividir-por-tamanho",
+    title: "Dividir por tamanho",
+    description:
+      "Quebre um PDF grande em partes menores de até X MB — ideal para anexar em e-mail ou sistemas com limite.",
+    category: "organizar",
+    color: "bg-brand text-white",
+    glyph: "⇤",
+    ready: true,
+    isNew: true,
+  },
+  {
+    slug: "padronizar-tamanho",
+    title: "Padronizar tamanho",
+    description:
+      "Deixe todas as páginas no mesmo tamanho (A4 ou Carta), ajustando cada página sem cortar o conteúdo.",
+    category: "organizar",
+    color: "bg-brand text-white",
+    glyph: "▭",
+    ready: true,
+    isNew: true,
+  },
+  {
+    slug: "extrair-texto",
+    title: "Extrair texto",
+    description:
+      "Retire todo o texto do PDF e baixe em um arquivo .txt simples.",
+    category: "converter",
+    color: "bg-brand text-white",
+    glyph: "T",
+    ready: true,
+    isNew: true,
+  },
+  {
+    slug: "extrair-imagens",
+    title: "Extrair imagens",
+    description:
+      "Baixe todas as imagens embutidas no PDF, empacotadas num arquivo .zip.",
+    category: "converter",
+    color: "bg-brand text-white",
+    glyph: "▦",
+    ready: true,
+    isNew: true,
+  },
+  {
+    slug: "imagem-para-texto",
+    title: "Imagem para texto",
+    description:
+      "Leia o texto de uma imagem (JPG/PNG) por OCR e baixe em .txt. Português e inglês.",
+    category: "intelligence",
+    color: "bg-brand-yellow text-brand-ink",
+    glyph: "👁",
+    ready: true,
+    isNew: true,
+  },
+  {
+    slug: "pdf-para-png",
+    title: "PDF para PNG",
+    description:
+      "Converta cada página do PDF em imagem PNG de alta qualidade (fundo nítido, sem perdas).",
+    category: "converter",
+    color: "bg-brand text-white",
+    glyph: "▧",
+    ready: true,
+    isNew: true,
+  },
 ];
 
 export const READY_TOOLS = TOOLS.filter((t) => t.ready);
