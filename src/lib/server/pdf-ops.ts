@@ -113,6 +113,66 @@ export async function extractPdfImages(input: Buffer): Promise<Buffer> {
   });
 }
 
+/**
+ * Converte um PDF em HTML fiel (poppler pdftohtml, modo "complexo"):
+ * cada página vira um fundo gráfico (PNG) com o TEXTO real posicionado por
+ * cima — selecionável/copiável, com fontes, cores e layout preservados.
+ * As imagens são embutidas em base64 para gerar um ÚNICO arquivo .html
+ * autossuficiente (abre em qualquer navegador, sem arquivos soltos).
+ */
+export async function pdfToHtml(input: Buffer): Promise<Buffer> {
+  return withWorkspace(async (dir) => {
+    const inPath = join(dir, "in.pdf");
+    await writeFile(inPath, input);
+    // -c complexo (fiel), -s documento único, -noframes 1 HTML, -fmt png,
+    // -zoom 2 backgrounds nítidos (fotos/gráficos), -q silencioso.
+    await run(
+      "pdftohtml",
+      ["-c", "-s", "-noframes", "-fmt", "png", "-zoom", "2", "-q", inPath, join(dir, "out.html")],
+      { timeoutMs: 180_000 }
+    );
+    let html: string;
+    try {
+      html = await readFile(join(dir, "out.html"), "utf8");
+    } catch {
+      throw new ProcessingError("Não foi possível converter este PDF para HTML.");
+    }
+    // Embute cada PNG referenciado como data URI (arquivo único).
+    const files = (await readdir(dir)).filter((f) => /\.png$/i.test(f));
+    const cache = new Map<string, string>();
+    for (const f of files) {
+      const b64 = (await readFile(join(dir, f))).toString("base64");
+      cache.set(f, `data:image/png;base64,${b64}`);
+    }
+    html = html.replace(/src="([^"]+\.png)"/gi, (m, name: string) => {
+      const uri = cache.get(name.replace(/^.*\//, ""));
+      return uri ? `src="${uri}"` : m;
+    });
+    return Buffer.from(html, "utf8");
+  });
+}
+
+/**
+ * Extrai o texto de um PDF preservando o layout (colunas, alinhamento e
+ * espaçamento) via poppler `pdftotext -layout` — bem mais fiel que juntar
+ * fragmentos por posição. UTF-8 para acentuação correta.
+ */
+export async function pdfToText(input: Buffer): Promise<Buffer> {
+  return withWorkspace(async (dir) => {
+    const inPath = join(dir, "in.pdf");
+    const outPath = join(dir, "out.txt");
+    await writeFile(inPath, input);
+    await run("pdftotext", ["-layout", "-enc", "UTF-8", inPath, outPath], { timeoutMs: 120_000 });
+    const txt = await readFile(outPath);
+    if (!txt.length) {
+      throw new ProcessingError(
+        "Este PDF não tem texto selecionável (parece ser escaneado). Use o OCR ou a ferramenta Imagem para texto."
+      );
+    }
+    return txt;
+  });
+}
+
 /** OCR de uma imagem (JPG/PNG) para texto via Tesseract. */
 export async function imageToText(input: Buffer, ext: string, lang = "por+eng"): Promise<Buffer> {
   return withWorkspace(async (dir) => {
