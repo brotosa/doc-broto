@@ -20,3 +20,4 @@ infra/*.js
 infra/*.d.ts
 infra/bin/*.js
 infra/lib/*.js
+*.tsbuildinfo
