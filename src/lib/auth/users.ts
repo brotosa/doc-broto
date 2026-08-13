@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { getStore, type Role, type UserRow } from "./store";
 import { getPolicy, validatePassword } from "./policy";
+import { getSecurityPolicy } from "./security-policy";
 
 export type Profile = {
   id: string;
@@ -16,8 +17,6 @@ export type Profile = {
   createdAt: number;
 };
 
-const MAX_FAILED = 5;
-const LOCK_MS = 15 * 60 * 1000;
 const HISTORY_KEEP = 12;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -61,13 +60,15 @@ export async function authenticate(email: string, password: string): Promise<Pro
     throw new Error(`Muitas tentativas. Tente novamente em ${min} min.`);
   }
 
+  const sec = await getSecurityPolicy();
   const ok = await bcrypt.compare(password, user.password_hash);
   if (!ok) {
     const failed = user.failed_attempts + 1;
     const patch: Partial<UserRow> = { failed_attempts: failed };
-    if (failed >= MAX_FAILED) {
+    // maxFailed = 0 desliga o bloqueio de conta (fica só o rate limit por IP).
+    if (sec.maxFailed > 0 && failed >= sec.maxFailed) {
       patch.failed_attempts = 0;
-      patch.locked_until = now + LOCK_MS;
+      patch.locked_until = now + sec.lockMinutes * 60_000;
     }
     await store.update(user.id, patch);
     throw new Error("E-mail ou senha inválidos.");

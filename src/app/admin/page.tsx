@@ -23,12 +23,20 @@ type Policy = {
   expirationDays: number;
   preventReuse: number;
 };
+type SecurityPolicy = {
+  maxFailed: number;
+  lockMinutes: number;
+  rateEnabled: boolean;
+  rateWindowSec: number;
+  rateMaxLogin: number;
+  rateMaxRegister: number;
+};
 
 const input = "rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-brand";
 const LOG_PAGE_SIZE = 20;
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"config" | "logs" | "activity">("config");
+  const [tab, setTab] = useState<"config" | "security" | "logs" | "activity">("config");
   const [users, setUsers] = useState<Profile[]>([]);
   const [audit, setAudit] = useState<Audit[]>([]);
   const [activity, setActivity] = useState<Audit[]>([]);
@@ -61,14 +69,19 @@ export default function AdminPage() {
   const [sessionPol, setSessionPol] = useState<{ idleMinutes: number } | null>(null);
   const [sessionMsg, setSessionMsg] = useState("");
 
+  // política de segurança (bloqueio de conta + rate limit por IP)
+  const [security, setSecurity] = useState<SecurityPolicy | null>(null);
+  const [securityMsg, setSecurityMsg] = useState("");
+
   const load = useCallback(async () => {
-    const [u, a, p, act, pv, sp] = await Promise.all([
+    const [u, a, p, act, pv, sp, se] = await Promise.all([
       fetch("/api/admin/users").then((r) => r.json()),
       fetch("/api/admin/audit").then((r) => r.json()),
       fetch("/api/admin/policy").then((r) => r.json()),
       fetch("/api/admin/activity").then((r) => r.json()),
       fetch("/api/admin/privacy").then((r) => r.json()),
       fetch("/api/admin/session-policy").then((r) => r.json()),
+      fetch("/api/admin/security-policy").then((r) => r.json()),
     ]);
     setUsers(u.users || []);
     setAudit(a.entries || []);
@@ -76,6 +89,7 @@ export default function AdminPage() {
     if (p.policy) setPolicy(p.policy);
     if (pv.privacy) setPrivacy(pv.privacy);
     if (sp.policy) setSessionPol(sp.policy);
+    if (se.policy) setSecurity(se.policy);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -153,6 +167,21 @@ export default function AdminPage() {
     setSessionMsg("Tempo de inatividade salvo ✓");
   }
 
+  async function saveSecurity(e: React.FormEvent) {
+    e.preventDefault();
+    if (!security) return;
+    setSecurityMsg("");
+    const r = await fetch("/api/admin/security-policy", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(security),
+    });
+    const d = await r.json();
+    if (!r.ok) { setSecurityMsg(d.error || "Falha ao salvar."); return; }
+    setSecurity(d.policy);
+    setSecurityMsg("Política de segurança salva ✓");
+  }
+
   async function savePrivacy(e: React.FormEvent) {
     e.preventDefault();
     if (!privacy) return;
@@ -182,6 +211,7 @@ export default function AdminPage() {
     <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${cls}`}>{txt}</span>
   );
   const setP = (k: keyof Policy, v: number | boolean) => setPolicy((p) => (p ? { ...p, [k]: v } : p));
+  const setS = (k: keyof SecurityPolicy, v: number | boolean) => setSecurity((s) => (s ? { ...s, [k]: v } : s));
 
   // fonte do log conforme a aba (system x atividade)
   const source = tab === "activity" ? activity : audit;
@@ -228,7 +258,7 @@ export default function AdminPage() {
   const page = Math.min(logPage, totalPages - 1);
   const pageItems = filtered.slice(page * LOG_PAGE_SIZE, page * LOG_PAGE_SIZE + LOG_PAGE_SIZE);
 
-  const tabBtn = (key: "config" | "logs" | "activity", label: string, count?: number) => (
+  const tabBtn = (key: "config" | "security" | "logs" | "activity", label: string, count?: number) => (
     <button
       onClick={() => setTab(key)}
       className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${tab === key ? "bg-white text-brand shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
@@ -248,11 +278,12 @@ export default function AdminPage() {
       {/* Abas */}
       <div className="inline-flex w-fit gap-1 rounded-xl bg-gray-100 p-1">
         {tabBtn("config", "Configurações", pend)}
+        {tabBtn("security", "Segurança")}
         {tabBtn("logs", "Logs")}
         {tabBtn("activity", "Atividade")}
       </div>
 
-      {tab === "config" ? (
+      {tab === "config" && (
         <div className="flex flex-col gap-8">
           {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
 
@@ -375,33 +406,6 @@ export default function AdminPage() {
             </form>
           )}
 
-          {/* tempo de inatividade da sessão */}
-          {sessionPol && (
-            <form onSubmit={saveSession} className="rounded-2xl border border-gray-100 bg-white p-5">
-              <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-gray-400">Sessão e segurança</h2>
-              <p className="mb-4 text-sm text-gray-500">
-                Depois de um tempo <b>sem atividade</b>, o usuário é desconectado e volta para a tela de login.
-              </p>
-              <label className="text-sm">
-                <span className="mb-1 block font-medium text-gray-700">Desconectar após inatividade de (minutos)</span>
-                <input
-                  type="number" min={0} max={1440}
-                  className={`${input} w-32`}
-                  value={sessionPol.idleMinutes}
-                  onChange={(e) => setSessionPol({ idleMinutes: Number(e.target.value) })}
-                />
-              </label>
-              <p className="mt-1 text-xs text-gray-400">
-                Ex.: <code>10</code> desconecta após 10 min parado. Use <code>0</code> para <b>desligar</b> (sessão longa, ~12h).
-                Vale a partir do próximo login de cada usuário.
-              </p>
-              <div className="mt-3 flex items-center gap-3">
-                <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar</button>
-                {sessionMsg && <span className={`text-sm ${sessionMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{sessionMsg}</span>}
-              </div>
-            </form>
-          )}
-
           {/* política de privacidade (texto editável) */}
           {privacy && (
             <form onSubmit={savePrivacy} className="rounded-2xl border border-gray-100 bg-white p-5">
@@ -445,7 +449,110 @@ export default function AdminPage() {
             </form>
           )}
         </div>
-      ) : (
+      )}
+
+      {tab === "security" && (
+        <div className="flex flex-col gap-8">
+          {/* bloqueio de conta por senha errada */}
+          {security && (
+            <form onSubmit={saveSecurity} className="rounded-2xl border border-gray-100 bg-white p-5">
+              <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-gray-400">Bloqueio por senha errada</h2>
+              <p className="mb-4 text-sm text-gray-500">
+                Protege cada conta contra tentativa de adivinhação de senha (brute-force): após várias
+                senhas erradas, a conta fica <b>temporariamente bloqueada</b>.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Tentativas antes de bloquear (0 = desliga)</span>
+                  <input type="number" min={0} max={50} className={`${input} w-32`} value={security.maxFailed}
+                    onChange={(e) => setS("maxFailed", Number(e.target.value))} />
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Duração do bloqueio (minutos)</span>
+                  <input type="number" min={1} max={1440} className={`${input} w-32`} value={security.lockMinutes}
+                    onChange={(e) => setS("lockMinutes", Number(e.target.value))} />
+                </label>
+              </div>
+              <p className="mt-2 text-xs text-gray-400">
+                Ex.: <code>5</code> tentativas e <code>15</code> min de bloqueio. O contador zera após um login correto.
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar</button>
+                {securityMsg && <span className={`text-sm ${securityMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{securityMsg}</span>}
+              </div>
+            </form>
+          )}
+
+          {/* rate limit por IP */}
+          {security && (
+            <form onSubmit={saveSecurity} className="rounded-2xl border border-gray-100 bg-white p-5">
+              <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-gray-400">Limite de tentativas por IP (anti-flood / DDoS)</h2>
+              <p className="mb-4 text-sm text-gray-500">
+                Limita quantas vezes um mesmo <b>endereço IP</b> pode tentar entrar ou se cadastrar em um curto
+                intervalo. Contém ataques automatizados de força bruta e enxurradas de requisições.
+              </p>
+              <label className="mb-4 flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" checked={security.rateEnabled} onChange={(e) => setS("rateEnabled", e.target.checked)} />
+                Ativar limite por IP
+              </label>
+              <div className={`grid gap-4 sm:grid-cols-3 ${security.rateEnabled ? "" : "opacity-40"}`}>
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Janela (segundos)</span>
+                  <input type="number" min={5} max={3600} disabled={!security.rateEnabled} className={`${input} w-full`} value={security.rateWindowSec}
+                    onChange={(e) => setS("rateWindowSec", Number(e.target.value))} />
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Máx. logins por IP</span>
+                  <input type="number" min={1} max={1000} disabled={!security.rateEnabled} className={`${input} w-full`} value={security.rateMaxLogin}
+                    onChange={(e) => setS("rateMaxLogin", Number(e.target.value))} />
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Máx. cadastros por IP</span>
+                  <input type="number" min={1} max={1000} disabled={!security.rateEnabled} className={`${input} w-full`} value={security.rateMaxRegister}
+                    onChange={(e) => setS("rateMaxRegister", Number(e.target.value))} />
+                </label>
+              </div>
+              <p className="mt-2 text-xs text-gray-400">
+                Ex.: <code>10</code> logins e <code>5</code> cadastros a cada <code>60</code>s por IP. Ao estourar, o IP recebe
+                erro <code>429</code> e precisa aguardar. Bloqueios ficam registrados no log.
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar</button>
+                {securityMsg && <span className={`text-sm ${securityMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{securityMsg}</span>}
+              </div>
+            </form>
+          )}
+
+          {/* tempo de inatividade da sessão */}
+          {sessionPol && (
+            <form onSubmit={saveSession} className="rounded-2xl border border-gray-100 bg-white p-5">
+              <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-gray-400">Tempo de sessão inativa</h2>
+              <p className="mb-4 text-sm text-gray-500">
+                Depois de um tempo <b>sem atividade</b>, o usuário é desconectado e volta para a tela de login.
+              </p>
+              <label className="text-sm">
+                <span className="mb-1 block font-medium text-gray-700">Desconectar após inatividade de (minutos)</span>
+                <input
+                  type="number" min={0} max={1440}
+                  className={`${input} w-32`}
+                  value={sessionPol.idleMinutes}
+                  onChange={(e) => setSessionPol({ idleMinutes: Number(e.target.value) })}
+                />
+              </label>
+              <p className="mt-1 text-xs text-gray-400">
+                Ex.: <code>10</code> desconecta após 10 min parado. Use <code>0</code> para <b>desligar</b> (sessão longa, ~12h).
+                Vale a partir do próximo login de cada usuário.
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar</button>
+                {sessionMsg && <span className={`text-sm ${sessionMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{sessionMsg}</span>}
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
+      {(tab === "logs" || tab === "activity") && (
         /* ------------- Abas Logs / Atividade ------------- */
         <div className="rounded-2xl border border-gray-100 bg-white p-5">
           <div className="mb-4 flex items-center justify-between">
