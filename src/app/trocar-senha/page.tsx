@@ -44,9 +44,9 @@ export default function TrocarSenhaPage() {
         <BrotoLogo />
       </div>
       <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
-        <h1 className="text-lg font-bold text-gray-900">Defina sua senha</h1>
+        <h1 className="text-lg font-bold text-gray-900">Trocar senha</h1>
         <p className="mb-5 mt-1 text-sm text-gray-500">
-          Por segurança, crie uma nova senha para continuar.
+          Escolha uma nova senha para a sua conta.
         </p>
         <form onSubmit={salvar} className="flex flex-col gap-3">
           <label className="text-sm font-medium text-gray-700">

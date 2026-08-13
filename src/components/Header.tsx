@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BrotoLogo } from "./Logo";
-import { LogoutButton } from "./LogoutButton";
+import { UserMenu } from "./UserMenu";
 import { getSessionUser } from "@/lib/auth/current-user";
 
 export async function Header() {
@@ -30,10 +30,7 @@ export async function Header() {
                 Configurações
               </Link>
             )}
-            <span className="hidden text-gray-500 sm:inline">
-              Olá, <span className="font-semibold text-gray-800">{user.name}</span>
-            </span>
-            <LogoutButton />
+            <UserMenu name={user.name} />
           </div>
         )}
       </div>
