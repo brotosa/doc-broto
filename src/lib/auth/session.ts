@@ -4,7 +4,9 @@
 import { SignJWT, jwtVerify } from "jose";
 
 export const SESSION_COOKIE = "broto_session";
-export const SESSION_MAX_AGE = 60 * 60 * 4; // 4 horas
+export const SESSION_MAX_AGE = 60 * 60 * 4; // 4 horas (padrão)
+// Janela usada quando o timeout por inatividade está desligado (idle = 0).
+export const SESSION_ABSOLUTE_FALLBACK = 60 * 60 * 12; // 12 horas
 
 export type Role = "admin" | "comum";
 export type SessionUser = {
@@ -21,11 +23,11 @@ function secret(): Uint8Array {
   );
 }
 
-export async function signSession(user: SessionUser): Promise<string> {
+export async function signSession(user: SessionUser, maxAgeSec: number = SESSION_MAX_AGE): Promise<string> {
   return new SignJWT({ ...user })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(`${SESSION_MAX_AGE}s`)
+    .setExpirationTime(`${maxAgeSec}s`)
     .sign(secret());
 }
 

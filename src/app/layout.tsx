@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Header } from "@/components/Header";
+import { IdleGuard } from "@/components/IdleGuard";
 
 export const metadata: Metadata = {
   title: "Broto — Ferramentas de PDF",
@@ -16,6 +17,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className="min-h-screen antialiased">
+        <IdleGuard />
         <Header />
         <main className="mx-auto max-w-7xl px-4 py-8">{children}</main>
         <footer className="mx-auto max-w-7xl px-4 py-10 text-center text-sm text-gray-400">

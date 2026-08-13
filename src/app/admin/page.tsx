@@ -57,19 +57,25 @@ export default function AdminPage() {
   const [privacy, setPrivacy] = useState<{ version: string; date: string; content: string } | null>(null);
   const [privacyMsg, setPrivacyMsg] = useState("");
 
+  // política de sessão (tempo de inatividade)
+  const [sessionPol, setSessionPol] = useState<{ idleMinutes: number } | null>(null);
+  const [sessionMsg, setSessionMsg] = useState("");
+
   const load = useCallback(async () => {
-    const [u, a, p, act, pv] = await Promise.all([
+    const [u, a, p, act, pv, sp] = await Promise.all([
       fetch("/api/admin/users").then((r) => r.json()),
       fetch("/api/admin/audit").then((r) => r.json()),
       fetch("/api/admin/policy").then((r) => r.json()),
       fetch("/api/admin/activity").then((r) => r.json()),
       fetch("/api/admin/privacy").then((r) => r.json()),
+      fetch("/api/admin/session-policy").then((r) => r.json()),
     ]);
     setUsers(u.users || []);
     setAudit(a.entries || []);
     setActivity(act.entries || []);
     if (p.policy) setPolicy(p.policy);
     if (pv.privacy) setPrivacy(pv.privacy);
+    if (sp.policy) setSessionPol(sp.policy);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -130,6 +136,21 @@ export default function AdminPage() {
     if (!r.ok) { setPolicyMsg(d.error || "Falha ao salvar."); return; }
     setPolicy(d.policy);
     setPolicyMsg("Política salva ✓");
+  }
+
+  async function saveSession(e: React.FormEvent) {
+    e.preventDefault();
+    if (!sessionPol) return;
+    setSessionMsg("");
+    const r = await fetch("/api/admin/session-policy", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(sessionPol),
+    });
+    const d = await r.json();
+    if (!r.ok) { setSessionMsg(d.error || "Falha ao salvar."); return; }
+    setSessionPol(d.policy);
+    setSessionMsg("Tempo de inatividade salvo ✓");
   }
 
   async function savePrivacy(e: React.FormEvent) {
@@ -350,6 +371,33 @@ export default function AdminPage() {
               <div className="mt-4 flex items-center gap-3">
                 <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar política</button>
                 {policyMsg && <span className={`text-sm ${policyMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{policyMsg}</span>}
+              </div>
+            </form>
+          )}
+
+          {/* tempo de inatividade da sessão */}
+          {sessionPol && (
+            <form onSubmit={saveSession} className="rounded-2xl border border-gray-100 bg-white p-5">
+              <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-gray-400">Sessão e segurança</h2>
+              <p className="mb-4 text-sm text-gray-500">
+                Depois de um tempo <b>sem atividade</b>, o usuário é desconectado e volta para a tela de login.
+              </p>
+              <label className="text-sm">
+                <span className="mb-1 block font-medium text-gray-700">Desconectar após inatividade de (minutos)</span>
+                <input
+                  type="number" min={0} max={1440}
+                  className={`${input} w-32`}
+                  value={sessionPol.idleMinutes}
+                  onChange={(e) => setSessionPol({ idleMinutes: Number(e.target.value) })}
+                />
+              </label>
+              <p className="mt-1 text-xs text-gray-400">
+                Ex.: <code>10</code> desconecta após 10 min parado. Use <code>0</code> para <b>desligar</b> (sessão longa, ~12h).
+                Vale a partir do próximo login de cada usuário.
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar</button>
+                {sessionMsg && <span className={`text-sm ${sessionMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{sessionMsg}</span>}
               </div>
             </form>
           )}
