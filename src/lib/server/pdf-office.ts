@@ -5,8 +5,8 @@ import { run, withWorkspace, ProcessingError } from "./exec";
 // Conversões PDF -> Office com motores dedicados (muito melhores que o
 // writer_pdf_import do LibreOffice, que perdia imagens/páginas):
 //   docx  -> pdf2docx (texto, imagens e tabelas, todas as páginas)
-//   pptx  -> PyMuPDF renderiza cada página como slide (fiel, com imagens)
-//   xlsx  -> PyMuPDF detecta tabelas; sem tabela, cai para texto por linha
+//   pptx  -> reconstrução fiel e editável (formas + imagens + texto)
+//   xlsx  -> tabelas com borda + grade posicional; números viram números
 // Requer python3 com pdf2docx, python-pptx e openpyxl (ver Dockerfile).
 const PYTHON = process.env.PYTHON_BIN || "python3";
 
@@ -117,24 +117,106 @@ elif mode == "pptx":
                     prev_x1 = s["bbox"][2]; prev_sz = s["size"]
     prs.save(dst)
 elif mode == "xlsx":
-    import pymupdf, openpyxl
+    # Reconstrução fiel: tabelas com bordas viram planilhas; conteúdo
+    # posicional (colunas sem borda) é remontado na grade certa pela
+    # posição no PDF; números (pt-BR/en, R$, %) viram números reais.
+    import re, pymupdf, openpyxl
+    from openpyxl.styles import Font, Alignment
+    from openpyxl.utils import get_column_letter
+    def coerce(v):
+        if v is None: return None, None
+        s = str(v).strip()
+        if not s: return "", None
+        raw = s
+        neg = s.startswith("(") and s.endswith(")")
+        t = s.replace("R$", "").replace("%", "").replace("(", "").replace(")", "").strip().replace(" ", "").replace("\\u00a0", "")
+        if re.fullmatch(r"[+-]?[\\d.,]+", t) and re.search(r"\\d", t):
+            if "," in t and "." in t:
+                t = t.replace(".", "").replace(",", ".") if t.rfind(",") > t.rfind(".") else t.replace(",", "")
+            elif "," in t:
+                dec = t.split(",")[-1]
+                t = t.replace(".", "").replace(",", ".") if len(dec) <= 2 else t.replace(",", "")
+            try:
+                num = float(t)
+                if neg: num = -num
+                fmt = "0.00%" if s.endswith("%") else ("R$ #,##0.00" if "R$" in s else None)
+                if s.endswith("%"): num = num / 100.0
+                return (int(num) if num == int(num) and "." not in t and "%" not in s else num), fmt
+            except ValueError:
+                return raw, None
+        return raw, None
+    def wcell(ws, row, col, text, bold=False):
+        val, fmt = coerce(text)
+        c = ws.cell(row=row, column=col, value=val)
+        if bold: c.font = Font(bold=True)
+        if isinstance(val, (int, float)):
+            c.number_format = fmt or ("#,##0.00" if isinstance(val, float) else "0")
+            c.alignment = Alignment(horizontal="right")
+        return c
+    def spans(page):
+        out = []
+        for b in page.get_text("dict")["blocks"]:
+            if b.get("type") != 0: continue
+            for l in b["lines"]:
+                for s in l["spans"]:
+                    if s["text"].strip(): out.append(s)
+        return out
+    def grid_from_spans(sp, page_w):
+        if not sp: return []
+        xs = sorted(s["bbox"][0] for s in sp)
+        tol = max(6, page_w * 0.012)
+        edges = [xs[0]]
+        for x in xs[1:]:
+            if x - edges[-1] > tol: edges.append(x)
+        def colof(x):
+            best = 0
+            for i, e in enumerate(edges):
+                if x >= e - tol: best = i
+            return best
+        items = sorted(sp, key=lambda s: ((s["bbox"][1] + s["bbox"][3]) / 2, s["bbox"][0]))
+        heights = sorted((s["bbox"][3] - s["bbox"][1]) for s in sp)
+        mh = heights[len(heights) // 2] or 10
+        rows = []; cur = []; cy = None
+        for s in items:
+            yc = (s["bbox"][1] + s["bbox"][3]) / 2
+            if cy is None or abs(yc - cy) <= mh * 0.7:
+                cur.append(s); cy = yc if cy is None else (cy + yc) / 2
+            else:
+                rows.append(cur); cur = [s]; cy = yc
+        if cur: rows.append(cur)
+        grid = []
+        for r in rows:
+            cells = {}; bolds = {}
+            for s in sorted(r, key=lambda s: s["bbox"][0]):
+                ci = colof(s["bbox"][0])
+                cells[ci] = (cells.get(ci, "") + (" " if ci in cells else "") + s["text"]).strip()
+                bolds[ci] = bolds.get(ci, False) or bool(s["flags"] & 16)
+            grid.append((cells, bolds))
+        return grid
     doc = pymupdf.open(src)
     wb = openpyxl.Workbook(); wb.remove(wb.active)
     for i, page in enumerate(doc):
-        ws = wb.create_sheet((f"Pagina {i+1}")[:31])
-        row = 1
-        tabs = page.find_tables()
-        if tabs.tables:
-            for t in tabs.tables:
-                for r in t.extract():
-                    for c, val in enumerate(r, 1):
-                        ws.cell(row=row, column=c, value=(str(val).strip() if val is not None else ""))
-                    row += 1
-                row += 1
-        else:
-            for line in page.get_text().splitlines():
-                if line.strip():
-                    ws.cell(row=row, column=1, value=line); row += 1
+        ws = wb.create_sheet((f"Pagina {i+1}")[:31]); row = 1
+        used = []
+        for t in page.find_tables().tables:
+            used.append(pymupdf.Rect(t.bbox)); hdr = True
+            for r in t.extract():
+                for c, val in enumerate(r, 1): wcell(ws, row, c, val, bold=hdr)
+                row += 1; hdr = False
+            row += 1
+        rest = [s for s in spans(page) if not any(pymupdf.Rect(s["bbox"]).intersects(u) for u in used)]
+        for cells, bolds in grid_from_spans(rest, page.rect.width):
+            if not cells: continue
+            for ci in range(max(cells) + 1):
+                if ci in cells: wcell(ws, row, ci + 1, cells[ci], bold=bolds.get(ci, False))
+            row += 1
+        widths = {}
+        for rr in ws.iter_rows():
+            for c in rr:
+                if c.value is not None:
+                    widths[c.column] = max(widths.get(c.column, 8), min(60, len(str(c.value)) + 2))
+        for col, w in widths.items():
+            ws.column_dimensions[get_column_letter(col)].width = w
     if not wb.sheetnames:
         wb.create_sheet("Pagina 1")
     wb.save(dst)
