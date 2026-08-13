@@ -16,6 +16,12 @@ export async function Header() {
         </Link>
         {user && (
           <div className="ml-auto flex items-center gap-2 text-sm">
+            <Link
+              href="/ajuda"
+              className="rounded-lg px-3 py-1.5 font-medium text-gray-600 transition hover:bg-gray-100 hover:text-brand"
+            >
+              Ajuda
+            </Link>
             {user.role === "admin" && (
               <Link
                 href="/admin"
