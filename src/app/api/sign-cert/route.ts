@@ -29,6 +29,7 @@ export async function POST(request: Request) {
       ? (cornerRaw as "br" | "bl" | "tr" | "tl")
       : "br";
 
+    const timestamp = String(form.get("timestamp") ?? "false") === "true";
     const out = await signPdfWithCert(await fileToBuffer(pdf), await fileToBuffer(cert), {
       password,
       reason: String(form.get("reason") ?? "").slice(0, 200),
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
       visible,
       page,
       corner,
+      timestamp,
     });
     const base = pdf.name.replace(/\.pdf$/i, "");
     return fileResponse(out, `${base}-assinado.pdf`);
