@@ -177,6 +177,14 @@ export default function AjudaPage() {
             </p>
             <Shot name="admin-atividade" alt="Aba Atividade" />
           </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+            <h3 className="text-lg font-bold text-gray-900">Jurídico</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Configura a <b>assinatura digital</b> (endereço do carimbo de tempo / ACT credenciada) e concentra a
+              <b> Política de Privacidade</b>.
+            </p>
+            <Shot name="admin-juridico" alt="Aba Jurídico" />
+          </div>
         </div>
       </section>
 

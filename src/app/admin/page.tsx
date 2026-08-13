@@ -36,7 +36,7 @@ const input = "rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none 
 const LOG_PAGE_SIZE = 20;
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"config" | "security" | "logs" | "activity">("config");
+  const [tab, setTab] = useState<"config" | "security" | "juridico" | "logs" | "activity">("config");
   const [users, setUsers] = useState<Profile[]>([]);
   const [audit, setAudit] = useState<Audit[]>([]);
   const [activity, setActivity] = useState<Audit[]>([]);
@@ -73,8 +73,12 @@ export default function AdminPage() {
   const [security, setSecurity] = useState<SecurityPolicy | null>(null);
   const [securityMsg, setSecurityMsg] = useState("");
 
+  // política jurídica / assinatura digital (carimbo de tempo)
+  const [sign, setSign] = useState<{ tsaUrl: string; timestampDefault: boolean } | null>(null);
+  const [signMsg, setSignMsg] = useState("");
+
   const load = useCallback(async () => {
-    const [u, a, p, act, pv, sp, se] = await Promise.all([
+    const [u, a, p, act, pv, sp, se, sg] = await Promise.all([
       fetch("/api/admin/users").then((r) => r.json()),
       fetch("/api/admin/audit").then((r) => r.json()),
       fetch("/api/admin/policy").then((r) => r.json()),
@@ -82,6 +86,7 @@ export default function AdminPage() {
       fetch("/api/admin/privacy").then((r) => r.json()),
       fetch("/api/admin/session-policy").then((r) => r.json()),
       fetch("/api/admin/security-policy").then((r) => r.json()),
+      fetch("/api/admin/sign-policy").then((r) => r.json()),
     ]);
     setUsers(u.users || []);
     setAudit(a.entries || []);
@@ -90,6 +95,7 @@ export default function AdminPage() {
     if (pv.privacy) setPrivacy(pv.privacy);
     if (sp.policy) setSessionPol(sp.policy);
     if (se.policy) setSecurity(se.policy);
+    if (sg.policy) setSign(sg.policy);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -197,6 +203,21 @@ export default function AdminPage() {
     setPrivacyMsg("Política de privacidade salva ✓");
   }
 
+  async function saveSign(e: React.FormEvent) {
+    e.preventDefault();
+    if (!sign) return;
+    setSignMsg("");
+    const r = await fetch("/api/admin/sign-policy", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(sign),
+    });
+    const d = await r.json();
+    if (!r.ok) { setSignMsg(d.error || "Falha ao salvar."); return; }
+    setSign(d.policy);
+    setSignMsg("Assinatura digital salva ✓");
+  }
+
   const genPassword = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$";
     let s = "";
@@ -258,7 +279,7 @@ export default function AdminPage() {
   const page = Math.min(logPage, totalPages - 1);
   const pageItems = filtered.slice(page * LOG_PAGE_SIZE, page * LOG_PAGE_SIZE + LOG_PAGE_SIZE);
 
-  const tabBtn = (key: "config" | "security" | "logs" | "activity", label: string, count?: number) => (
+  const tabBtn = (key: "config" | "security" | "juridico" | "logs" | "activity", label: string, count?: number) => (
     <button
       onClick={() => setTab(key)}
       className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${tab === key ? "bg-white text-brand shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
@@ -279,6 +300,7 @@ export default function AdminPage() {
       <div className="inline-flex w-fit gap-1 rounded-xl bg-gray-100 p-1">
         {tabBtn("config", "Configurações", pend)}
         {tabBtn("security", "Segurança")}
+        {tabBtn("juridico", "Jurídico")}
         {tabBtn("logs", "Logs")}
         {tabBtn("activity", "Atividade")}
       </div>
@@ -406,48 +428,6 @@ export default function AdminPage() {
             </form>
           )}
 
-          {/* política de privacidade (texto editável) */}
-          {privacy && (
-            <form onSubmit={savePrivacy} className="rounded-2xl border border-gray-100 bg-white p-5">
-              <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-gray-400">Política de privacidade</h2>
-              <p className="mb-4 text-sm text-gray-500">
-                Este texto aparece no cadastro (ao aceitar) e na página pública <b>/privacidade</b>.
-              </p>
-              <div className="mb-3 flex flex-wrap gap-3">
-                <label className="text-sm">
-                  <span className="mb-1 block font-medium text-gray-700">Versão</span>
-                  <input className={`${input} w-28`} value={privacy.version}
-                    onChange={(e) => setPrivacy({ ...privacy, version: e.target.value })} />
-                </label>
-                <label className="text-sm">
-                  <span className="mb-1 block font-medium text-gray-700">Data</span>
-                  <input className={`${input} w-40`} value={privacy.date}
-                    onChange={(e) => setPrivacy({ ...privacy, date: e.target.value })} />
-                </label>
-              </div>
-              <label className="block text-sm">
-                <span className="mb-1 block font-medium text-gray-700">Texto</span>
-                <textarea
-                  className={`${input} h-72 w-full font-mono text-xs leading-relaxed`}
-                  value={privacy.content}
-                  onChange={(e) => setPrivacy({ ...privacy, content: e.target.value })}
-                />
-              </label>
-              <p className="mt-1 text-xs text-gray-400">
-                Formatação simples: <code>## Título</code> vira subtítulo, <code>- item</code> vira lista,
-                e uma linha em branco separa parágrafos.
-              </p>
-              <div className="mt-3 flex items-center gap-3">
-                <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar texto</button>
-                <a href="/privacidade" target="_blank" className="text-sm text-brand underline hover:opacity-80">Pré-visualizar</a>
-                {privacyMsg && <span className={`text-sm ${privacyMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{privacyMsg}</span>}
-              </div>
-              <p className="mt-2 text-xs text-gray-400">
-                Dica: ao mudar o texto de forma relevante, aumente a <b>versão</b> — cada aceite fica
-                registrado no log com a versão vigente.
-              </p>
-            </form>
-          )}
         </div>
       )}
 
@@ -547,6 +527,86 @@ export default function AdminPage() {
                 <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar</button>
                 {sessionMsg && <span className={`text-sm ${sessionMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{sessionMsg}</span>}
               </div>
+            </form>
+          )}
+        </div>
+      )}
+
+      {tab === "juridico" && (
+        <div className="flex flex-col gap-8">
+          {/* assinatura digital / carimbo de tempo */}
+          {sign && (
+            <form onSubmit={saveSign} className="rounded-2xl border border-gray-100 bg-white p-5">
+              <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-gray-400">Assinatura digital (carimbo de tempo)</h2>
+              <p className="mb-4 text-sm text-gray-500">
+                Usado pela ferramenta <b>Assinar com certificado</b> (ICP-Brasil A1). O <b>carimbo de tempo</b>{" "}
+                comprova a data/hora da assinatura de forma criptográfica.
+              </p>
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium text-gray-700">Endereço do servidor de carimbo de tempo (TSA)</span>
+                <input
+                  className={`${input} w-full`}
+                  value={sign.tsaUrl}
+                  onChange={(e) => setSign({ ...sign, tsaUrl: e.target.value })}
+                  placeholder="http://timestamp.digicert.com"
+                />
+              </label>
+              <p className="mt-1 text-xs text-gray-400">
+                Já vem com um TSA <b>gratuito</b> (comprova a hora, mas não é credenciado ICP-Brasil). Quando
+                contratar uma <b>ACT credenciada</b> (para carimbo oficial AD-RT), cole aqui o endereço dela.
+                Deixe vazio para voltar ao padrão gratuito.
+              </p>
+              <label className="mt-4 flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" checked={sign.timestampDefault} onChange={(e) => setSign({ ...sign, timestampDefault: e.target.checked })} />
+                Já deixar a opção de carimbo de tempo <b>marcada por padrão</b> na ferramenta
+              </label>
+              <div className="mt-4 flex items-center gap-3">
+                <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar</button>
+                {signMsg && <span className={`text-sm ${signMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{signMsg}</span>}
+              </div>
+            </form>
+          )}
+
+          {/* política de privacidade (texto editável) */}
+          {privacy && (
+            <form onSubmit={savePrivacy} className="rounded-2xl border border-gray-100 bg-white p-5">
+              <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-gray-400">Política de privacidade</h2>
+              <p className="mb-4 text-sm text-gray-500">
+                Este texto aparece no cadastro (ao aceitar) e na página pública <b>/privacidade</b>.
+              </p>
+              <div className="mb-3 flex flex-wrap gap-3">
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Versão</span>
+                  <input className={`${input} w-28`} value={privacy.version}
+                    onChange={(e) => setPrivacy({ ...privacy, version: e.target.value })} />
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Data</span>
+                  <input className={`${input} w-40`} value={privacy.date}
+                    onChange={(e) => setPrivacy({ ...privacy, date: e.target.value })} />
+                </label>
+              </div>
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium text-gray-700">Texto</span>
+                <textarea
+                  className={`${input} h-72 w-full font-mono text-xs leading-relaxed`}
+                  value={privacy.content}
+                  onChange={(e) => setPrivacy({ ...privacy, content: e.target.value })}
+                />
+              </label>
+              <p className="mt-1 text-xs text-gray-400">
+                Formatação simples: <code>## Título</code> vira subtítulo, <code>- item</code> vira lista,
+                e uma linha em branco separa parágrafos.
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar texto</button>
+                <a href="/privacidade" target="_blank" className="text-sm text-brand underline hover:opacity-80">Pré-visualizar</a>
+                {privacyMsg && <span className={`text-sm ${privacyMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{privacyMsg}</span>}
+              </div>
+              <p className="mt-2 text-xs text-gray-400">
+                Dica: ao mudar o texto de forma relevante, aumente a <b>versão</b> — cada aceite fica
+                registrado no log com a versão vigente.
+              </p>
             </form>
           )}
         </div>

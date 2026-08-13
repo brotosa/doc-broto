@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getTool } from "@/lib/tools";
 import { ToolShell } from "@/components/ToolShell";
 import { FileDropzone } from "@/components/FileDropzone";
@@ -19,6 +19,14 @@ export default function Page() {
   const [corner, setCorner] = useState("br");
   const [timestamp, setTimestamp] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // Pré-marca o carimbo de tempo conforme o padrão definido pelo admin (Jurídico).
+  useEffect(() => {
+    fetch("/api/sign-policy")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.timestampDefault) setTimestamp(true); })
+      .catch(() => {});
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const certRef = useRef<HTMLInputElement>(null);
 
