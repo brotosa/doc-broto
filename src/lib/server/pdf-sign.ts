@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { writeFile, readFile } from "node:fs/promises";
 import { run, withWorkspace, ProcessingError } from "./exec";
+import { getSignPolicy, DEFAULT_TSA_URL } from "@/lib/auth/sign-policy";
 
 // Assinatura digital com certificado ICP-Brasil A1 (.pfx/.p12), padrão PAdES
 // (AD-RB básica) via pyHanko. A chave privada é usada apenas em memória/arquivo
@@ -73,10 +74,6 @@ with open(cfg["inpdf"], "rb") as inf, open(cfg["outpdf"], "wb") as outf:
 print("OK")
 `;
 
-// TSA público gratuito (RFC3161). Para AD-RT oficial ICP-Brasil, troque
-// por uma ACT credenciada via a env TSA_URL.
-const DEFAULT_TSA_URL = "http://timestamp.digicert.com";
-
 export type SignOptions = {
   password: string;
   reason?: string;
@@ -96,6 +93,9 @@ export async function signPdfWithCert(pdf: Buffer, pfx: Buffer, opts: SignOption
     await writeFile(inPath, pdf);
     await writeFile(pfxPath, pfx);
     await writeFile(scriptPath, SCRIPT);
+    const tsaUrl = opts.timestamp
+      ? (await getSignPolicy()).tsaUrl || process.env.TSA_URL || DEFAULT_TSA_URL
+      : "";
     const cfg = {
       inpdf: inPath,
       outpdf: outPath,
@@ -106,7 +106,7 @@ export async function signPdfWithCert(pdf: Buffer, pfx: Buffer, opts: SignOption
       visible: opts.visible !== false,
       page: opts.page ?? 0,
       corner: opts.corner || "br",
-      tsa_url: opts.timestamp ? (process.env.TSA_URL || DEFAULT_TSA_URL) : "",
+      tsa_url: tsaUrl,
     };
     try {
       await run(PYTHON, [scriptPath, JSON.stringify(cfg)], {
