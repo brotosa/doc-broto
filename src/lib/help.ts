@@ -37,6 +37,7 @@ export const HELP_STEPS: Record<string, string[]> = {
   "achatar-pdf": ["Envie o PDF com formulário preenchido.", "Clique em Achatar e baixar — os campos ficam fixos."],
   "editar-metadados": ["Envie o PDF.", "Edite título, autor, assunto e palavras-chave.", "Clique em Salvar metadados."],
   "assinar-pdf": ["Envie o PDF.", "Crie sua assinatura (desenhar, digitar ou imagem).", "Clique no documento para posicionar e ajuste o tamanho.", "Clique em Assinar e baixar PDF."],
+  "assinar-certificado": ["Envie o PDF.", "Envie o certificado A1 (.pfx/.p12) e digite a senha.", "Opcional: motivo, local e onde mostrar o carimbo.", "Clique em Assinar com certificado — assinatura PAdES/ICP-Brasil."],
   "proteger-pdf": ["Envie o PDF.", "Defina uma senha.", "Clique em Proteger — o PDF passa a exigir senha para abrir."],
   "desbloquear-pdf": ["Envie o PDF protegido.", "Digite a senha.", "Clique em Desbloquear."],
   "ocultar-pdf": ["Envie o PDF.", "Desenhe tarjas sobre o que quer esconder.", "Clique em Ocultar e baixar."],

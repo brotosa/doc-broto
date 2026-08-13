@@ -161,6 +161,17 @@ export const TOOLS: Tool[] = [
     ready: true,
   },
   {
+    slug: "assinar-certificado",
+    title: "Assinar com certificado",
+    description:
+      "Assinatura digital com certificado ICP-Brasil A1 (.pfx), padrão PAdES — com validade jurídica e verificável no validar.iti.gov.br.",
+    category: "seguranca",
+    color: "bg-brand-ink text-white",
+    glyph: "🛡",
+    ready: true,
+    isNew: true,
+  },
+  {
     slug: "marca-dagua",
     title: "Marca d'água",
     description:

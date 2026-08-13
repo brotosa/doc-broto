@@ -44,13 +44,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       tesseract-ocr tesseract-ocr-por tesseract-ocr-eng ocrmypdf \
       chromium \
       python3 python3-pip libglib2.0-0 libgl1 libgomp1 \
-      fonts-liberation fonts-dejavu-core fontconfig \
+      fonts-liberation fonts-dejavu-core fontconfig tzdata \
       dumb-init \
     && rm -rf /var/lib/apt/lists/*
 
-# Motores de conversão PDF -> Office (Python)
+# Motores Python:
+#  - pdf2docx/python-pptx/openpyxl: PDF -> Word/PowerPoint/Excel
+#  - pyHanko: assinatura digital ICP-Brasil A1 (PAdES) em PDF
 RUN pip3 install --no-cache-dir --break-system-packages \
-      pdf2docx==0.5.13 python-pptx==1.0.2 openpyxl==3.1.5 \
+      pdf2docx==0.5.13 python-pptx==1.0.2 openpyxl==3.1.5 pyHanko==0.36.2 \
     && rm -rf /root/.cache/pip
 
 # Usuário não-root
