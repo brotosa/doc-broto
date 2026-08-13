@@ -1,5 +1,6 @@
 import { readFile, writeFile, readdir } from "node:fs/promises";
 import { join, parse } from "node:path";
+import JSZip from "jszip";
 import { run, withWorkspace, ProcessingError } from "./exec";
 
 /** Locate the LibreOffice binary. */
@@ -94,6 +95,31 @@ export async function compressPdf(input: Buffer, level: keyof typeof GS_PRESETS)
       inPath,
     ]);
     return readFile(outPath);
+  });
+}
+
+/** Extract embedded images from a PDF (poppler pdfimages) into a .zip. */
+export async function extractPdfImages(input: Buffer): Promise<Buffer> {
+  return withWorkspace(async (dir) => {
+    const inPath = join(dir, "in.pdf");
+    await writeFile(inPath, input);
+    // -all preserva o formato original de cada imagem (jpg/png/…).
+    await run("pdfimages", ["-all", inPath, join(dir, "img")], { timeoutMs: 120_000 });
+    const files = (await readdir(dir)).filter((f) => f.startsWith("img") && f !== "in.pdf");
+    if (!files.length) throw new ProcessingError("Nenhuma imagem encontrada neste PDF.");
+    const zip = new JSZip();
+    for (const f of files.sort()) zip.file(f, await readFile(join(dir, f)));
+    return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+  });
+}
+
+/** OCR de uma imagem (JPG/PNG) para texto via Tesseract. */
+export async function imageToText(input: Buffer, ext: string, lang = "por+eng"): Promise<Buffer> {
+  return withWorkspace(async (dir) => {
+    const inPath = join(dir, `in${ext.startsWith(".") ? ext : "." + ext}`);
+    await writeFile(inPath, input);
+    const { stdout } = await run("tesseract", [inPath, "stdout", "-l", lang], { timeoutMs: 120_000 });
+    return Buffer.from(stdout, "utf8");
   });
 }
 
