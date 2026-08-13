@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Tool } from "@/lib/tools";
 import { ToolShell } from "./ToolShell";
 import { FileDropzone } from "./FileDropzone";
@@ -35,6 +35,25 @@ export function BackendTool({
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const { busy, error, result, submit, setError } = useServerAction();
+
+  // Barra de progresso animada durante o processamento (o envio é um único
+  // request, então avançamos suavemente até ~92% e completamos ao terminar).
+  const [progress, setProgress] = useState(0);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (busy) {
+      setProgress(8);
+      timer.current = setInterval(() => {
+        setProgress((p) => (p < 92 ? p + Math.max(0.5, (92 - p) * 0.06) : p));
+      }, 300);
+    } else {
+      if (timer.current) clearInterval(timer.current);
+      setProgress((p) => (p > 0 ? 100 : 0));
+      const t = setTimeout(() => setProgress(0), 600);
+      return () => clearTimeout(t);
+    }
+    return () => { if (timer.current) clearInterval(timer.current); };
+  }, [busy]);
 
   const onSubmit = async () => {
     const built = build(files);
@@ -82,8 +101,22 @@ export function BackendTool({
         disabled={files.length < minFiles || busy}
         className="mt-6 w-full rounded-xl bg-brand py-3 font-semibold text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {busy ? "Processando..." : buttonLabel}
+        {busy ? "Convertendo..." : buttonLabel}
       </button>
+
+      {(busy || progress > 0) && (
+        <div className="mt-3" aria-live="polite">
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
+            <div
+              className="h-full rounded-full bg-brand transition-all duration-300 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="mt-1.5 text-center text-xs text-gray-500">
+            {progress >= 100 ? "Concluído!" : `Convertendo… ${Math.round(progress)}%`}
+          </p>
+        </div>
+      )}
     </ToolShell>
   );
 }
