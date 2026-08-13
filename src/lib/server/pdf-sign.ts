@@ -14,6 +14,7 @@ try:
 except Exception:
     pass
 from pyhanko.sign import signers, fields
+from pyhanko.sign.timestamps import HTTPTimeStamper
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko import stamp
@@ -26,6 +27,11 @@ except Exception:
     raise SystemExit("CERT_INVALIDO")
 if signer is None:
     raise SystemExit("CERT_INVALIDO")
+
+# Carimbo de tempo RFC3161 opcional (PAdES-B-T): comprova a hora da
+# assinatura criptograficamente. Basta uma URL de TSA (padrão gratuito;
+# troque por uma ACT ICP-Brasil credenciada para AD-RT oficial).
+timestamper = HTTPTimeStamper(cfg["tsa_url"]) if cfg.get("tsa_url") else None
 
 meta = signers.PdfSignatureMetadata(field_name=cfg.get("field", "Assinatura1"), subfilter=fields.SigSeedSubFilter.PADES, reason=(cfg.get("reason") or None), location=(cfg.get("location") or None))
 
@@ -52,13 +58,24 @@ with open(cfg["inpdf"], "rb") as inf, open(cfg["outpdf"], "wb") as outf:
         line = "Assinado digitalmente por\\n%(signer)s\\nData: %(ts)s"
         if cfg.get("reason"): line += "\\nMotivo: " + cfg["reason"]
         stamp_style = stamp.TextStampStyle(stamp_text=line, border_width=0, text_box_style=text.TextBoxStyle(font_size=8), timestamp_format="%d/%m/%Y %H:%M:%S %Z")
-        pdf_signer = signers.PdfSigner(meta, signer=signer, stamp_style=stamp_style, new_field_spec=fields.SigFieldSpec(sig_field_name=meta.field_name, on_page=page, box=box))
+        pdf_signer = signers.PdfSigner(meta, signer=signer, stamp_style=stamp_style, timestamper=timestamper, new_field_spec=fields.SigFieldSpec(sig_field_name=meta.field_name, on_page=page, box=box))
     else:
         w = IncrementalPdfFileWriter(inf)
-        pdf_signer = signers.PdfSigner(meta, signer=signer)
-    pdf_signer.sign_pdf(w, output=outf, existing_fields_only=False)
+        pdf_signer = signers.PdfSigner(meta, signer=signer, timestamper=timestamper)
+    try:
+        pdf_signer.sign_pdf(w, output=outf, existing_fields_only=False)
+    except SystemExit:
+        raise
+    except Exception as e:
+        if timestamper is not None:
+            raise SystemExit("TSA_FALHOU")
+        raise
 print("OK")
 `;
+
+// TSA público gratuito (RFC3161). Para AD-RT oficial ICP-Brasil, troque
+// por uma ACT credenciada via a env TSA_URL.
+const DEFAULT_TSA_URL = "http://timestamp.digicert.com";
 
 export type SignOptions = {
   password: string;
@@ -67,6 +84,7 @@ export type SignOptions = {
   visible?: boolean;
   page?: number; // 0-based
   corner?: "br" | "bl" | "tr" | "tl";
+  timestamp?: boolean; // incluir carimbo de tempo RFC3161 (PAdES-B-T)
 };
 
 export async function signPdfWithCert(pdf: Buffer, pfx: Buffer, opts: SignOptions): Promise<Buffer> {
@@ -88,6 +106,7 @@ export async function signPdfWithCert(pdf: Buffer, pfx: Buffer, opts: SignOption
       visible: opts.visible !== false,
       page: opts.page ?? 0,
       corner: opts.corner || "br",
+      tsa_url: opts.timestamp ? (process.env.TSA_URL || DEFAULT_TSA_URL) : "",
     };
     try {
       await run(PYTHON, [scriptPath, JSON.stringify(cfg)], {
@@ -99,6 +118,9 @@ export async function signPdfWithCert(pdf: Buffer, pfx: Buffer, opts: SignOption
       const blob = `${err.message || ""} ${err.detail || ""}`;
       if (blob.includes("CERT_INVALIDO")) {
         throw new ProcessingError("Certificado inválido ou senha incorreta. Verifique o arquivo .pfx/.p12 e a senha.");
+      }
+      if (blob.includes("TSA_FALHOU")) {
+        throw new ProcessingError("Não foi possível obter o carimbo de tempo (o servidor de carimbo pode estar indisponível). Tente novamente ou desmarque a opção de carimbo de tempo para assinar sem ele.");
       }
       throw new ProcessingError(
         "Não foi possível assinar este PDF. Ele pode estar protegido, corrompido ou o certificado é incompatível.",

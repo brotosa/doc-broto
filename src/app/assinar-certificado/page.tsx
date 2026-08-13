@@ -17,6 +17,7 @@ export default function Page() {
   const [visible, setVisible] = useState(true);
   const [page, setPage] = useState(1);
   const [corner, setCorner] = useState("br");
+  const [timestamp, setTimestamp] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const certRef = useRef<HTMLInputElement>(null);
@@ -37,6 +38,7 @@ export default function Page() {
       fd.append("visible", String(visible));
       fd.append("page", String(page));
       fd.append("corner", corner);
+      fd.append("timestamp", String(timestamp));
       const res = await fetch("/api/sign-cert", { method: "POST", body: fd });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -112,6 +114,17 @@ export default function Page() {
             </div>
           </div>
         )}
+
+        {/* Carimbo de tempo (RFC3161) */}
+        <div className="border-t border-gray-100 pt-4">
+          <label className="flex items-start gap-2 text-sm text-gray-700">
+            <input type="checkbox" className="mt-0.5" checked={timestamp} onChange={(e) => setTimestamp(e.target.checked)} />
+            <span>
+              Incluir <b>carimbo de tempo</b> (grátis) — comprova a data/hora da assinatura criptograficamente
+              (PAdES-B-T). Precisa de internet no servidor; não é o carimbo credenciado ICP-Brasil.
+            </span>
+          </label>
+        </div>
       </div>
 
       <div className="mt-4 rounded-xl bg-brand/5 p-4 text-xs text-gray-600">
