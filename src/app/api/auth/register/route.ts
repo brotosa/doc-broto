@@ -1,11 +1,27 @@
 import { NextResponse } from "next/server";
 import { createAccount, audit } from "@/lib/auth/users";
 import { getPrivacy } from "@/lib/privacy";
+import { getSecurityPolicy } from "@/lib/auth/security-policy";
+import { rateLimit, clientIp } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 
 // Cadastro público. A conta nasce "pendente" e precisa da liberação do admin.
 export async function POST(req: Request) {
+  const ip = clientIp(req);
+  const sec = await getSecurityPolicy();
+  if (sec.rateEnabled) {
+    const rl = rateLimit(`register:${ip}`, sec.rateMaxRegister, sec.rateWindowSec);
+    if (!rl.ok) {
+      if (rl.justTripped) {
+        await audit({ action: "muitas tentativas de cadastro (bloqueio por IP)", detail: ip });
+      }
+      return NextResponse.json(
+        { error: `Muitas tentativas. Aguarde ${rl.retryAfterSec}s e tente novamente.` },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+      );
+    }
+  }
   try {
     const { email, name, password, acceptedPrivacy } = await req.json();
     if (acceptedPrivacy !== true) {
