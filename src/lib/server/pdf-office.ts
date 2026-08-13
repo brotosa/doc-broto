@@ -69,9 +69,14 @@ export async function pdfToOfficePy(input: Buffer, target: "docx" | "pptx" | "xl
     await writeFile(scriptPath, SCRIPT);
     try {
       await run(PYTHON, [scriptPath, target, inPath, outPath], { timeoutMs: 300_000 });
+      return await readFile(outPath);
     } catch (e) {
-      throw new ProcessingError("Não foi possível converter o PDF.", (e as Error).message);
+      // Sempre devolve um ProcessingError (mensagem clara, 400) em vez de
+      // deixar escapar uma exceção crua (que viraria "Erro inesperado", 500).
+      throw new ProcessingError(
+        "Não foi possível converter este PDF. Ele pode estar protegido por senha, corrompido ou em um formato não suportado.",
+        (e as Error).message
+      );
     }
-    return readFile(outPath);
   });
 }
