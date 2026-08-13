@@ -52,11 +52,28 @@ elif mode == "pptx":
         small = []
         for d in page.get_drawings():
             rc = d.get("rect")
-            if rc is None or rc.width <= 0 or rc.height <= 0: continue
-            f = d.get("fill")
-            big = f and rc.width >= 15 and rc.height >= 15 and (rc.width * rc.height) >= 0.01 * area
-            if (big and (rc.width < W * 0.999 or rc.height < H * 0.999)) or (f and (rc.width * rc.height) >= 0.04 * area):
-                sp = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, E(rc.x0), E(rc.y0), E(rc.width), E(rc.height))
+            if rc is None: continue
+            f = d.get("fill"); stroke = d.get("color")
+            w_, h_ = rc.width, rc.height
+            longside = max(w_, h_); shortside = min(w_, h_)
+            # Linhas/bordas/divisores (tabelas, sublinhados): um lado fino
+            # (inclui 0) e o outro longo -> retângulo fino nítido e editável.
+            # Limiares conservadores para não roubar traços finos de logos.
+            if shortside <= 2.0 and longside >= 24:
+                col = f or stroke
+                if col is not None:
+                    th = max(0.75, shortside if shortside > 0 else (d.get("width") or 0.75))
+                    if w_ >= h_:
+                        x0l, y0l, wl, hl = rc.x0, rc.y0 + (h_ - th) / 2, longside, th
+                    else:
+                        x0l, y0l, wl, hl = rc.x0 + (w_ - th) / 2, rc.y0, th, longside
+                    sp = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, E(x0l), E(y0l), E(wl), E(hl))
+                    sp.fill.solid(); sp.fill.fore_color.rgb = rgb(col); sp.line.fill.background(); sp.shadow.inherit = False
+                continue
+            if w_ <= 0 or h_ <= 0: continue
+            big = f and w_ >= 15 and h_ >= 15 and (w_ * h_) >= 0.01 * area
+            if (big and (w_ < W * 0.999 or h_ < H * 0.999)) or (f and (w_ * h_) >= 0.04 * area):
+                sp = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, E(rc.x0), E(rc.y0), E(w_), E(h_))
                 sp.fill.solid(); sp.fill.fore_color.rgb = rgb(f); sp.line.fill.background(); sp.shadow.inherit = False
             else:
                 small.append(rc)
@@ -220,11 +237,69 @@ elif mode == "xlsx":
     if not wb.sheetnames:
         wb.create_sheet("Pagina 1")
     wb.save(dst)
+elif mode == "csv":
+    # Mesmo motor do Excel (tabelas com borda + grade posicional), mas a
+    # saída é CSV puro (texto), fiel à disposição de linhas e colunas.
+    import csv, pymupdf
+    def spans(page):
+        out = []
+        for b in page.get_text("dict")["blocks"]:
+            if b.get("type") != 0: continue
+            for l in b["lines"]:
+                for s in l["spans"]:
+                    if s["text"].strip(): out.append(s)
+        return out
+    def grid_from_spans(sp, page_w):
+        if not sp: return []
+        xs = sorted(s["bbox"][0] for s in sp)
+        tol = max(6, page_w * 0.012)
+        edges = [xs[0]]
+        for x in xs[1:]:
+            if x - edges[-1] > tol: edges.append(x)
+        def colof(x):
+            best = 0
+            for i, e in enumerate(edges):
+                if x >= e - tol: best = i
+            return best
+        items = sorted(sp, key=lambda s: ((s["bbox"][1] + s["bbox"][3]) / 2, s["bbox"][0]))
+        heights = sorted((s["bbox"][3] - s["bbox"][1]) for s in sp)
+        mh = heights[len(heights) // 2] or 10
+        rows = []; cur = []; cy = None
+        for s in items:
+            yc = (s["bbox"][1] + s["bbox"][3]) / 2
+            if cy is None or abs(yc - cy) <= mh * 0.7:
+                cur.append(s); cy = yc if cy is None else (cy + yc) / 2
+            else:
+                rows.append(cur); cur = [s]; cy = yc
+        if cur: rows.append(cur)
+        out = []
+        for r in rows:
+            cells = {}
+            for s in sorted(r, key=lambda s: s["bbox"][0]):
+                ci = colof(s["bbox"][0])
+                cells[ci] = (cells.get(ci, "") + (" " if ci in cells else "") + s["text"]).strip()
+            out.append(cells)
+        return out
+    doc = pymupdf.open(src)
+    with open(dst, "w", newline="", encoding="utf-8-sig") as f:
+        w = csv.writer(f)
+        for i, page in enumerate(doc):
+            if i > 0: w.writerow([])
+            if doc.page_count > 1: w.writerow([f"# Página {i+1}"])
+            used = []
+            for t in page.find_tables().tables:
+                used.append(pymupdf.Rect(t.bbox))
+                for r in t.extract():
+                    w.writerow(["" if v is None else str(v).strip() for v in r])
+            rest = [s for s in spans(page) if not any(pymupdf.Rect(s["bbox"]).intersects(u) for u in used)]
+            for cells in grid_from_spans(rest, page.rect.width):
+                if not cells: continue
+                w.writerow([cells.get(ci, "") for ci in range(max(cells) + 1)])
 else:
     raise SystemExit("modo invalido")
 `;
 
-export async function pdfToOfficePy(input: Buffer, target: "docx" | "pptx" | "xlsx"): Promise<Buffer> {
+export async function pdfToOfficePy(input: Buffer, target: "docx" | "pptx" | "xlsx" | "csv"): Promise<Buffer> {
   return withWorkspace(async (dir) => {
     const inPath = join(dir, "in.pdf");
     const outPath = join(dir, `out.${target}`);
