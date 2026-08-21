@@ -62,12 +62,23 @@ export default function OrganizePage() {
     };
   }, [files]);
 
+  const [dragPos, setDragPos] = useState<number | null>(null);
+
   const move = (pos: number, dir: -1 | 1) => {
     const j = pos + dir;
     if (j < 0 || j >= order.length) return;
     const next = [...order];
     [next[pos], next[j]] = [next[j], next[pos]];
     setOrder(next);
+  };
+
+  const dropAt = (to: number) => {
+    if (dragPos === null || dragPos === to) return;
+    const next = [...order];
+    const [m] = next.splice(dragPos, 1);
+    next.splice(to, 0, m);
+    setOrder(next);
+    setDragPos(null);
   };
 
   const remove = (pos: number) => setOrder(order.filter((_, i) => i !== pos));
@@ -99,12 +110,24 @@ export default function OrganizePage() {
       {loading && <p className="mt-6 text-center text-sm text-gray-500">Gerando miniaturas...</p>}
 
       {order.length > 0 && (
-        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+        <>
+        <p className="mt-6 text-sm font-medium text-gray-600">Arraste as páginas para reordenar (ou use as setas):</p>
+        <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           {order.map((index, pos) => {
             const t = thumbFor(index);
             return (
-              <div key={index} className="group relative rounded-lg border border-gray-200 bg-white p-2">
-                {t && <img src={t.url} alt={`Página ${index + 1}`} className="w-full rounded" />}
+              <div
+                key={index}
+                draggable
+                onDragStart={() => setDragPos(pos)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => dropAt(pos)}
+                onDragEnd={() => setDragPos(null)}
+                className={`group relative cursor-move rounded-lg border bg-white p-2 transition ${
+                  dragPos === pos ? "border-brand opacity-50" : "border-gray-200 hover:border-brand/40"
+                }`}
+              >
+                {t && <img src={t.url} alt={`Página ${index + 1}`} className="w-full rounded" draggable={false} />}
                 <div className="mt-1 flex items-center justify-between text-xs text-gray-500">
                   <span>Pág. {index + 1}</span>
                   <span className="flex gap-1">
@@ -117,6 +140,7 @@ export default function OrganizePage() {
             );
           })}
         </div>
+        </>
       )}
 
       {error && <p className="mt-4 text-sm text-brand">{error}</p>}

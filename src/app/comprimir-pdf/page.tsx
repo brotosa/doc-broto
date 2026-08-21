@@ -22,7 +22,9 @@ export default function CompressPage() {
   const [level, setLevel] = useState<Level>("recommended");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ before: number; after: number } | null>(null);
+  const [result, setResult] = useState<{ before: number; after: number; bytes: Uint8Array; name: string } | null>(null);
+
+  const pickLevel = (l: Level) => { setLevel(l); setResult(null); };
 
   const run = async () => {
     setBusy(true);
@@ -52,8 +54,12 @@ export default function CompressPage() {
       }
 
       const saved = await out.save();
-      setResult({ before: original.length, after: saved.length });
-      downloadBlob(saved, files[0].name.replace(/\.pdf$/i, "") + "-comprimido.pdf");
+      setResult({
+        before: original.length,
+        after: saved.length,
+        bytes: saved,
+        name: files[0].name.replace(/\.pdf$/i, "") + "-comprimido.pdf",
+      });
     } catch (e) {
       setError("Não foi possível comprimir o arquivo.");
       console.error(e);
@@ -71,7 +77,7 @@ export default function CompressPage() {
           {(Object.keys(LEVELS) as Level[]).map((l) => (
             <button
               key={l}
-              onClick={() => setLevel(l)}
+              onClick={() => pickLevel(l)}
               className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-sm font-medium ${level === l ? "border-brand bg-brand/5 text-brand" : "border-gray-200 text-gray-600"}`}
             >
               <span>{LEVELS[l].label}</span>
@@ -86,9 +92,35 @@ export default function CompressPage() {
       )}
 
       {result && (
-        <div className="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
-          {formatBytes(result.before)} → {formatBytes(result.after)} (
-          {Math.max(0, Math.round((1 - result.after / result.before) * 100))}% menor)
+        <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
+          {(() => {
+            const pct = Math.round((1 - result.after / result.before) * 100);
+            const menor = result.after < result.before;
+            return (
+              <>
+                <div className="flex items-center justify-center gap-3 text-center">
+                  <div>
+                    <p className="text-xs text-gray-400">Original</p>
+                    <p className="text-lg font-semibold text-gray-700">{formatBytes(result.before)}</p>
+                  </div>
+                  <span className="text-2xl text-gray-300">→</span>
+                  <div>
+                    <p className="text-xs text-gray-400">Comprimido</p>
+                    <p className={`text-lg font-bold ${menor ? "text-brand-green" : "text-gray-700"}`}>{formatBytes(result.after)}</p>
+                  </div>
+                </div>
+                <p className={`mt-2 text-center text-sm font-medium ${menor ? "text-brand-green" : "text-gray-500"}`}>
+                  {menor ? `${pct}% menor` : "Ficou maior — este PDF já está otimizado; tente outro nível ou mantenha o original."}
+                </p>
+                <button
+                  onClick={() => downloadBlob(result.bytes, result.name)}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 font-semibold text-white transition hover:bg-brand-dark"
+                >
+                  ⤓ Baixar PDF comprimido
+                </button>
+              </>
+            );
+          })()}
         </div>
       )}
 
@@ -99,7 +131,7 @@ export default function CompressPage() {
         disabled={files.length === 0 || busy}
         className="mt-6 w-full rounded-xl bg-brand py-3 font-semibold text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {busy ? "Comprimindo..." : "Comprimir PDF"}
+        {busy ? "Comprimindo..." : result ? "Comprimir de novo" : "Comprimir PDF"}
       </button>
     </ToolShell>
   );

@@ -13,6 +13,7 @@ export default function MergePage() {
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dragI, setDragI] = useState<number | null>(null);
 
   const move = (i: number, dir: -1 | 1) => {
     const j = i + dir;
@@ -20,6 +21,15 @@ export default function MergePage() {
     const next = [...files];
     [next[i], next[j]] = [next[j], next[i]];
     setFiles(next);
+  };
+
+  const dropAt = (to: number) => {
+    if (dragI === null || dragI === to) return;
+    const next = [...files];
+    const [m] = next.splice(dragI, 1);
+    next.splice(to, 0, m);
+    setFiles(next);
+    setDragI(null);
   };
 
   const merge = async () => {
@@ -50,16 +60,24 @@ export default function MergePage() {
       {files.length > 1 && (
         <div className="mt-6">
           <p className="mb-2 text-sm font-medium text-gray-600">
-            Ordem dos arquivos (use as setas para reordenar):
+            Ordem dos arquivos (arraste para reordenar, ou use as setas):
           </p>
           <ul className="space-y-2">
             {files.map((f, i) => (
               <li
                 key={`${f.name}-${i}`}
-                className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm"
+                draggable
+                onDragStart={() => setDragI(i)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => dropAt(i)}
+                onDragEnd={() => setDragI(null)}
+                className={`flex cursor-move items-center justify-between rounded-lg border bg-white px-4 py-2 text-sm transition ${
+                  dragI === i ? "border-brand opacity-50" : "border-gray-200 hover:border-brand/40"
+                }`}
               >
-                <span className="truncate pr-3">
-                  {i + 1}. {f.name}
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="text-gray-300" aria-hidden>⠿</span>
+                  <span className="truncate">{i + 1}. {f.name}</span>
                 </span>
                 <span className="flex gap-1">
                   <button onClick={() => move(i, -1)} disabled={i === 0} className="rounded px-2 py-1 hover:bg-gray-100 disabled:opacity-30">↑</button>
