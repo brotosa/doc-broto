@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   const ip = clientIp(req);
   const sec = await getSecurityPolicy();
   if (sec.rateEnabled) {
-    const rl = rateLimit(`register:${ip}`, sec.rateMaxRegister, sec.rateWindowSec);
+    const rl = await rateLimit(`register:${ip}`, sec.rateMaxRegister, sec.rateWindowSec);
     if (!rl.ok) {
       if (rl.justTripped) {
         await audit({ action: "muitas tentativas de cadastro (bloqueio por IP)", detail: ip });

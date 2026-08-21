@@ -33,7 +33,7 @@ type SecurityPolicy = {
 };
 
 const input = "rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-brand";
-const LOG_PAGE_SIZE = 20;
+const LOG_PAGE_SIZES = [10, 20, 50, 100];
 
 export default function AdminPage() {
   const [tab, setTab] = useState<"config" | "security" | "juridico" | "logs" | "activity">("config");
@@ -41,6 +41,7 @@ export default function AdminPage() {
   const [audit, setAudit] = useState<Audit[]>([]);
   const [activity, setActivity] = useState<Audit[]>([]);
   const [logPage, setLogPage] = useState(0);
+  const [logPageSize, setLogPageSize] = useState(20);
 
   // filtros do log
   const [fText, setFText] = useState("");
@@ -312,14 +313,43 @@ export default function AdminPage() {
   const hasFilter = !!(fText || fAction || fUser || fFrom || fTo);
   const clearFilters = () => { setFText(""); setFAction(""); setFUser(""); setFFrom(""); setFTo(""); };
 
+  // Exporta os registros filtrados (aba atual) para CSV.
+  const exportCsv = () => {
+    const cell = (v: unknown) => {
+      const s = (v ?? "").toString();
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = tab === "activity"
+      ? ["Data", "Hora", "Usuário", "Ferramenta", "Arquivo"]
+      : ["Data", "Hora", "Usuário", "Ação", "Alvo", "Detalhe"];
+    const lines = [header.join(",")];
+    for (const a of filtered) {
+      const d = a.at ? new Date(a.at) : null;
+      const data = d ? d.toLocaleDateString("pt-BR") : "";
+      const hora = d ? d.toLocaleTimeString("pt-BR") : "";
+      const cols = tab === "activity"
+        ? [data, hora, a.byName || "", a.action || "", a.targetName || ""]
+        : [data, hora, a.byName || "", a.action || "", a.targetName || "", a.detail || ""];
+      lines.push(cols.map(cell).join(","));
+    }
+    const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const today = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `${tab === "activity" ? "atividade" : "logs"}-broto-${today}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   // volta para a 1ª página sempre que o filtro muda
   useEffect(() => { setLogPage(0); }, [fText, fAction, fUser, fFrom, fTo]);
   // ao trocar de aba, limpa filtros e volta à 1ª página
   useEffect(() => { clearFilters(); setLogPage(0); }, [tab]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / LOG_PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / logPageSize));
   const page = Math.min(logPage, totalPages - 1);
-  const pageItems = filtered.slice(page * LOG_PAGE_SIZE, page * LOG_PAGE_SIZE + LOG_PAGE_SIZE);
+  const pageItems = filtered.slice(page * logPageSize, page * logPageSize + logPageSize);
 
   const tabBtn = (key: "config" | "security" | "juridico" | "logs" | "activity", label: string, count?: number) => (
     <button
@@ -668,13 +698,33 @@ export default function AdminPage() {
       {(tab === "logs" || tab === "activity") && (
         /* ------------- Abas Logs / Atividade ------------- */
         <div className="rounded-2xl border border-gray-100 bg-white p-5">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-sm font-bold uppercase tracking-wide text-gray-400">
               {tab === "activity" ? "Log de atividade dos usuários" : "Log de auditoria"}
             </h2>
-            <span className="text-xs text-gray-400">
-              {hasFilter ? `${filtered.length} de ${source.length}` : `${source.length}`} registro(s)
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-400">
+                {hasFilter ? `${filtered.length} de ${source.length}` : `${source.length}`} registro(s)
+              </span>
+              <label className="flex items-center gap-1 text-xs text-gray-500">
+                Por página
+                <select
+                  className="rounded-lg border border-gray-200 px-2 py-1 text-sm outline-none focus:border-brand"
+                  value={logPageSize}
+                  onChange={(e) => { setLogPageSize(Number(e.target.value)); setLogPage(0); }}
+                >
+                  {LOG_PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </label>
+              <button
+                onClick={exportCsv}
+                disabled={filtered.length === 0}
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-40"
+                title="Baixar os registros filtrados em CSV (abre no Excel)"
+              >
+                ⤓ Exportar CSV
+              </button>
+            </div>
           </div>
 
           {/* filtros */}
@@ -745,7 +795,7 @@ export default function AdminPage() {
                 {pageItems.map((a, i) => {
                   const d = a.at ? new Date(a.at) : null;
                   return (
-                    <tr key={page * LOG_PAGE_SIZE + i} className="border-b border-gray-50 last:border-0">
+                    <tr key={page * logPageSize + i} className="border-b border-gray-50 last:border-0">
                       <td className="whitespace-nowrap px-3 py-2.5 text-gray-500">{d ? d.toLocaleDateString("pt-BR") : "—"}</td>
                       <td className="whitespace-nowrap px-3 py-2.5 text-gray-500">{d ? d.toLocaleTimeString("pt-BR") : "—"}</td>
                       <td className="px-3 py-2.5 font-semibold text-gray-800">{a.byName || "—"}</td>
@@ -778,7 +828,7 @@ export default function AdminPage() {
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 text-sm">
               <span className="text-gray-500">
-                {page * LOG_PAGE_SIZE + 1}–{Math.min((page + 1) * LOG_PAGE_SIZE, filtered.length)} de {filtered.length}
+                {page * logPageSize + 1}–{Math.min((page + 1) * logPageSize, filtered.length)} de {filtered.length}
               </span>
               <div className="flex items-center gap-2">
                 <button
