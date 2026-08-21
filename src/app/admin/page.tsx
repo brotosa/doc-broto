@@ -51,6 +51,10 @@ export default function AdminPage() {
   const [err, setErr] = useState("");
   const [novo, setNovo] = useState({ email: "", name: "", password: "", role: "comum" });
 
+  // busca e ordenação da lista de usuários (padrão: nome A→Z)
+  const [uSearch, setUSearch] = useState("");
+  const [uSort, setUSort] = useState<{ key: "name" | "email" | "role" | "situacao"; dir: "asc" | "desc" }>({ key: "name", dir: "asc" });
+
   // modais
   const [editTarget, setEditTarget] = useState<Profile | null>(null);
   const [editForm, setEditForm] = useState({ name: "", email: "", role: "comum", active: true, password: "" });
@@ -245,6 +249,30 @@ export default function AdminPage() {
   const badge = (txt: string, cls: string) => (
     <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${cls}`}>{txt}</span>
   );
+
+  // usuários filtrados pela busca e ordenados (padrão: nome A→Z)
+  const situacaoRank = (u: Profile) => (!u.approved ? 0 : u.active ? 1 : 2);
+  const visibleUsers = useMemo(() => {
+    const q = uSearch.trim().toLowerCase();
+    const arr = users.filter(
+      (u) => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+    );
+    const dir = uSort.dir === "asc" ? 1 : -1;
+    arr.sort((a, b) => {
+      let c = 0;
+      if (uSort.key === "name") c = a.name.localeCompare(b.name, "pt-BR");
+      else if (uSort.key === "email") c = a.email.localeCompare(b.email, "pt-BR");
+      else if (uSort.key === "role") c = a.role.localeCompare(b.role);
+      else c = situacaoRank(a) - situacaoRank(b);
+      if (c === 0) c = a.name.localeCompare(b.name, "pt-BR"); // desempate por nome
+      return c * dir;
+    });
+    return arr;
+  }, [users, uSearch, uSort]);
+  const toggleSort = (key: "name" | "email" | "role" | "situacao") =>
+    setUSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+  const sortArrow = (key: string) => (uSort.key === key ? (uSort.dir === "asc" ? " ↑" : " ↓") : "");
+
   const setP = (k: keyof Policy, v: number | boolean) => setPolicy((p) => (p ? { ...p, [k]: v } : p));
   const setS = (k: keyof SecurityPolicy, v: number | boolean) => setSecurity((s) => (s ? { ...s, [k]: v } : s));
 
@@ -349,20 +377,33 @@ export default function AdminPage() {
             </button>
           </form>
 
+          {/* busca */}
+          <div className="flex items-center gap-3">
+            <input
+              className={`${input} w-full max-w-sm`}
+              placeholder="Buscar por nome ou e-mail…"
+              value={uSearch}
+              onChange={(e) => setUSearch(e.target.value)}
+            />
+            <span className="text-xs text-gray-400">
+              {uSearch ? `${visibleUsers.length} de ${users.length}` : `${users.length}`} usuário(s)
+            </span>
+          </div>
+
           {/* tabela */}
           <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
                 <tr>
-                  <th className="px-4 py-3">Nome</th>
-                  <th className="px-4 py-3">E-mail</th>
-                  <th className="px-4 py-3">Tipo</th>
-                  <th className="px-4 py-3">Situação</th>
+                  <th className="cursor-pointer select-none px-4 py-3 hover:text-gray-600" onClick={() => toggleSort("name")}>Nome{sortArrow("name")}</th>
+                  <th className="cursor-pointer select-none px-4 py-3 hover:text-gray-600" onClick={() => toggleSort("email")}>E-mail{sortArrow("email")}</th>
+                  <th className="cursor-pointer select-none px-4 py-3 hover:text-gray-600" onClick={() => toggleSort("role")}>Tipo{sortArrow("role")}</th>
+                  <th className="cursor-pointer select-none px-4 py-3 hover:text-gray-600" onClick={() => toggleSort("situacao")}>Situação{sortArrow("situacao")}</th>
                   <th className="px-4 py-3 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
+                {visibleUsers.map((u) => (
                   <tr key={u.id} className="border-b border-gray-50 last:border-0">
                     <td className="px-4 py-3 font-semibold text-gray-800">{u.name}</td>
                     <td className="px-4 py-3 text-gray-600">{u.email}</td>
@@ -393,8 +434,10 @@ export default function AdminPage() {
                     </td>
                   </tr>
                 ))}
-                {users.length === 0 && (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">Nenhum usuário ainda.</td></tr>
+                {visibleUsers.length === 0 && (
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                    {users.length === 0 ? "Nenhum usuário ainda." : "Nenhum usuário encontrado para a busca."}
+                  </td></tr>
                 )}
               </tbody>
             </table>
