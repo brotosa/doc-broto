@@ -45,13 +45,20 @@ export interface Store {
   listAudit(limit: number, category?: string): Promise<AuditRow[]>;
   getSetting<T>(key: string): Promise<T | null>;
   setSetting<T>(key: string, value: T): Promise<void>;
+  /** Rate limit persistente: consome 1 tentativa para `bucket`. */
+  rateConsume(bucket: string, windowSec: number, max: number): Promise<{ ok: boolean; retryAfterSec: number }>;
 }
+
+// Retenção de logs de auditoria (dias). Registros mais antigos são apagados.
+const AUDIT_RETENTION_DAYS = 180;
+const MEM_AUDIT_CAP = 5000;
 
 /* ----------------------- Memória (dev) ----------------------- */
 class MemStore implements Store {
   private users = new Map<string, UserRow>();
   private audit: AuditRow[] = [];
   private settings = new Map<string, unknown>();
+  private rate = new Map<string, number[]>();
   async init() {}
   async findByEmail(email: string) {
     for (const r of this.users.values()) if (r.email === email) return { ...r };
@@ -79,6 +86,7 @@ class MemStore implements Store {
   }
   async addAudit(row: AuditRow) {
     this.audit.unshift({ category: "system", ...row });
+    if (this.audit.length > MEM_AUDIT_CAP) this.audit.length = MEM_AUDIT_CAP;
   }
   async listAudit(limit: number, category?: string) {
     const src = category ? this.audit.filter((r) => (r.category ?? "system") === category) : this.audit;
@@ -89,6 +97,18 @@ class MemStore implements Store {
   }
   async setSetting<T>(key: string, value: T) {
     this.settings.set(key, value);
+  }
+  async rateConsume(bucket: string, windowSec: number, max: number) {
+    const now = Date.now();
+    const cutoff = now - windowSec * 1000;
+    const arr = (this.rate.get(bucket) || []).filter((t) => t > cutoff);
+    if (arr.length >= max) {
+      this.rate.set(bucket, arr);
+      return { ok: false, retryAfterSec: Math.max(1, Math.ceil((arr[0] + windowSec * 1000 - now) / 1000)) };
+    }
+    arr.push(now);
+    this.rate.set(bucket, arr);
+    return { ok: true, retryAfterSec: 0 };
   }
 }
 
@@ -148,7 +168,15 @@ class PgStore implements Store {
         ALTER TABLE users ADD COLUMN IF NOT EXISTS pwd_history text[] NOT NULL DEFAULT '{}';
         ALTER TABLE audit ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'system';
         CREATE INDEX IF NOT EXISTS audit_category_at_idx ON audit (category, at DESC);
+        CREATE TABLE IF NOT EXISTS rate_hits (
+          bucket text NOT NULL,
+          at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS rate_hits_bucket_at_idx ON rate_hits (bucket, at DESC);
       `);
+      // Limpeza de logs antigos e de rate-hits vencidos (na subida).
+      await pool.query(`DELETE FROM audit WHERE at < now() - make_interval(days => $1)`, [AUDIT_RETENTION_DAYS]).catch(() => {});
+      await pool.query(`DELETE FROM rate_hits WHERE at < now() - interval '1 hour'`).catch(() => {});
     })();
     return this.ready;
   }
@@ -222,12 +250,17 @@ class PgStore implements Store {
     const { rows } = await pool.query("SELECT COUNT(*)::int AS c FROM users");
     return rows[0].c as number;
   }
+  private auditWrites = 0;
   async addAudit(a: AuditRow) {
     const pool = await this.getPool();
     await pool.query(
       "INSERT INTO audit (at,action,by_name,target_name,detail,category) VALUES (to_timestamp($1/1000.0),$2,$3,$4,$5,$6)",
       [a.at, a.action, a.by_name, a.target_name, a.detail, a.category ?? "system"]
     );
+    // A cada ~200 inserções, poda registros além da retenção (não bloqueia).
+    if (++this.auditWrites % 200 === 0) {
+      pool.query(`DELETE FROM audit WHERE at < now() - make_interval(days => $1)`, [AUDIT_RETENTION_DAYS]).catch(() => {});
+    }
   }
   async listAudit(limit: number, category?: string) {
     const pool = await this.getPool();
@@ -254,6 +287,22 @@ class PgStore implements Store {
       "INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2",
       [key, JSON.stringify(value)]
     );
+  }
+  async rateConsume(bucket: string, windowSec: number, max: number) {
+    const pool = await this.getPool();
+    // Janela deslizante persistente: poda o bucket, conta, e só registra a
+    // tentativa se ainda estiver dentro do limite.
+    await pool.query(`DELETE FROM rate_hits WHERE bucket=$1 AND at < now() - make_interval(secs => $2)`, [bucket, windowSec]);
+    const { rows } = await pool.query(
+      `SELECT count(*)::int AS c, EXTRACT(EPOCH FROM (min(at) + make_interval(secs => $2) - now()))::int AS retry FROM rate_hits WHERE bucket=$1`,
+      [bucket, windowSec]
+    );
+    const c = rows[0]?.c ?? 0;
+    if (c >= max) {
+      return { ok: false, retryAfterSec: Math.max(1, Number(rows[0]?.retry) || windowSec) };
+    }
+    await pool.query("INSERT INTO rate_hits (bucket) VALUES ($1)", [bucket]);
+    return { ok: true, retryAfterSec: 0 };
   }
 }
 

@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   const ip = clientIp(req);
   const sec = await getSecurityPolicy();
   if (sec.rateEnabled) {
-    const rl = rateLimit(`login:${ip}`, sec.rateMaxLogin, sec.rateWindowSec);
+    const rl = await rateLimit(`login:${ip}`, sec.rateMaxLogin, sec.rateWindowSec);
     if (!rl.ok) {
       if (rl.justTripped) {
         await audit({ action: "muitas tentativas de login (bloqueio por IP)", detail: ip });
