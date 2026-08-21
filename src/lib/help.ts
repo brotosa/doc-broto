@@ -1,16 +1,16 @@
 // Passos "Como usar" de cada ferramenta, exibidos na página de Ajuda (/ajuda).
 // Texto simples (sem HTML). O catálogo em si vem de tools.ts.
 export const HELP_STEPS: Record<string, string[]> = {
-  "juntar-pdf": ["Envie dois ou mais PDFs.", "Arraste com as setas ↑ ↓ para definir a ordem.", "Clique em Juntar PDF."],
+  "juntar-pdf": ["Envie dois ou mais PDFs.", "Arraste os arquivos para definir a ordem (ou use as setas ↑ ↓).", "Clique em Juntar PDF."],
   "dividir-pdf": ["Envie o PDF.", "Escolha Intervalo (ex.: 1-3) ou Cada página.", "Clique em Dividir PDF."],
   "rodar-pdf": ["Envie um ou mais PDFs.", "Escolha o sentido do giro (90° / 180°).", "Clique em Rodar PDF."],
-  "organizar-pdf": ["Envie o PDF.", "Reordene ou remova páginas nas miniaturas.", "Clique em Organizar PDF."],
+  "organizar-pdf": ["Envie o PDF.", "Arraste as miniaturas para reordenar (ou use ← →); remova com ✕.", "Clique em Organizar PDF."],
   "digitalizar-pdf": ["Envie as fotos/imagens dos documentos.", "Ajuste a ordem das páginas.", "Clique em Gerar PDF."],
   "extrair-paginas": ["Envie o PDF.", "Digite as páginas a manter (ex.: 1-3, 5).", "Clique em Extrair páginas."],
   "remover-paginas": ["Envie o PDF.", "Digite as páginas a remover (ex.: 2, 6-7).", "Clique em Remover páginas."],
   "dividir-por-tamanho": ["Envie o PDF grande.", "Defina o tamanho máximo de cada parte (MB).", "Clique em Dividir por tamanho — sai um .zip com as partes."],
   "padronizar-tamanho": ["Envie o PDF.", "Escolha A4 ou Carta.", "Clique em Padronizar tamanho."],
-  "comprimir-pdf": ["Envie o PDF.", "Escolha o nível de compressão.", "Clique em Comprimir PDF."],
+  "comprimir-pdf": ["Envie o PDF.", "Escolha o nível de compressão.", "Clique em Comprimir e veja a prévia “Original → Comprimido (% menor)”.", "Clique em Baixar PDF comprimido."],
   "reparar-pdf": ["Envie o PDF danificado.", "Clique em Reparar e baixe o arquivo recuperado."],
   "tons-de-cinza": ["Envie o PDF colorido.", "Clique em Converter para tons de cinza."],
   "pdf-para-word": ["Envie o PDF.", "Clique em Converter para Word (.docx)."],
@@ -31,7 +31,7 @@ export const HELP_STEPS: Record<string, string[]> = {
   "editar-pdf": ["Envie o PDF.", "Adicione texto, imagens ou formas na página.", "Clique em Baixar PDF editado."],
   "marca-dagua": ["Envie o PDF.", "Escreva o texto (ou escolha imagem) e ajuste posição e transparência.", "Clique em Adicionar marca d'água."],
   "numeros-de-pagina": ["Envie o PDF.", "Escolha a posição e o formato.", "Clique em Adicionar números."],
-  "comparar-pdf": ["Envie os dois PDFs (antes e depois).", "Veja as diferenças destacadas lado a lado."],
+  "comparar-pdf": ["Envie os dois PDFs (antes e depois).", "Veja o realce visual das diferenças lado a lado.", "Clique em Comparar texto para ver o que foi removido (vermelho) e adicionado (verde)."],
   "recortar-pdf": ["Envie o PDF.", "Ajuste as margens — a área escura será removida (prévia ao vivo).", "Clique em Recortar e baixar PDF."],
   "formularios-pdf": ["Envie um PDF com formulário.", "Preencha os campos detectados.", "Clique em Preencher e baixar."],
   "achatar-pdf": ["Envie o PDF com formulário preenchido.", "Clique em Achatar e baixar — os campos ficam fixos."],
