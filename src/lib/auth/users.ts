@@ -148,12 +148,22 @@ export async function listProfiles(): Promise<Profile[]> {
   return (await getStore().list()).map(toProfile);
 }
 
-type Patch = { name?: string; role?: Role; approved?: boolean; active?: boolean; password?: string };
+type Patch = { name?: string; email?: string; role?: Role; approved?: boolean; active?: boolean; password?: string };
 export async function updateUser(id: string, patch: Patch): Promise<void> {
   await init();
   const store = getStore();
   const fields: Partial<UserRow> = {};
-  if (typeof patch.name === "string") fields.name = patch.name.trim();
+  if (typeof patch.name === "string") {
+    if (!patch.name.trim()) throw new Error("O nome não pode ficar vazio.");
+    fields.name = patch.name.trim();
+  }
+  if (typeof patch.email === "string") {
+    const email = norm(patch.email);
+    if (!isValidEmail(email)) throw new Error("Informe um e-mail válido.");
+    const existing = await store.findByEmail(email);
+    if (existing && existing.id !== id) throw new Error("Este e-mail já está cadastrado.");
+    fields.email = email;
+  }
   if (patch.role) fields.role = patch.role;
   if (typeof patch.approved === "boolean") fields.approved = patch.approved;
   if (typeof patch.active === "boolean") fields.active = patch.active;

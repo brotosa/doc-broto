@@ -35,6 +35,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (patch.active === true) acoes.push("reativou");
     if (patch.role) acoes.push(`definiu tipo=${patch.role}`);
     if (typeof patch.name === "string") acoes.push("renomeou");
+    if (typeof patch.email === "string") acoes.push("alterou e-mail");
     if (patch.password) acoes.push("redefiniu senha");
     await audit({
       action: acoes.join(", ") || "editou usuário",

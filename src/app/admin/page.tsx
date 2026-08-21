@@ -52,9 +52,9 @@ export default function AdminPage() {
   const [novo, setNovo] = useState({ email: "", name: "", password: "", role: "comum" });
 
   // modais
-  const [resetTarget, setResetTarget] = useState<Profile | null>(null);
-  const [resetPw, setResetPw] = useState("");
-  const [resetErr, setResetErr] = useState("");
+  const [editTarget, setEditTarget] = useState<Profile | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", role: "comum", active: true, password: "" });
+  const [editErr, setEditErr] = useState("");
   const [delTarget, setDelTarget] = useState<Profile | null>(null);
 
   // política de senha
@@ -124,16 +124,30 @@ export default function AdminPage() {
     await load();
   }
 
-  async function confirmReset() {
-    if (!resetTarget) return;
-    setResetErr("");
-    const r = await fetch(`/api/admin/users/${resetTarget.id}`, {
+  function openEdit(u: Profile) {
+    setEditErr("");
+    setEditForm({ name: u.name, email: u.email, role: u.role, active: u.active, password: "" });
+    setEditTarget(u);
+  }
+
+  async function confirmEdit() {
+    if (!editTarget) return;
+    setEditErr("");
+    // Envia só o que mudou; senha vazia = não altera.
+    const patch: Record<string, unknown> = {};
+    if (editForm.name.trim() !== editTarget.name) patch.name = editForm.name.trim();
+    if (editForm.email.trim().toLowerCase() !== editTarget.email) patch.email = editForm.email.trim();
+    if (editForm.role !== editTarget.role) patch.role = editForm.role;
+    if (editForm.active !== editTarget.active) patch.active = editForm.active;
+    if (editForm.password) patch.password = editForm.password;
+    if (Object.keys(patch).length === 0) { setEditTarget(null); return; }
+    const r = await fetch(`/api/admin/users/${editTarget.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ password: resetPw }),
+      body: JSON.stringify(patch),
     });
-    if (!r.ok) { setResetErr((await r.json()).error || "Falha ao redefinir."); return; }
-    setResetTarget(null); setResetPw("");
+    if (!r.ok) { setEditErr((await r.json()).error || "Falha ao salvar."); return; }
+    setEditTarget(null);
     await load();
   }
 
@@ -224,7 +238,7 @@ export default function AdminPage() {
     const arr = new Uint32Array(14);
     crypto.getRandomValues(arr);
     for (const n of arr) s += chars[n % chars.length];
-    setResetPw(s);
+    return s;
   };
 
   const pend = users.filter((u) => !u.approved).length;
@@ -340,8 +354,8 @@ export default function AdminPage() {
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
                 <tr>
-                  <th className="px-4 py-3">E-mail</th>
                   <th className="px-4 py-3">Nome</th>
+                  <th className="px-4 py-3">E-mail</th>
                   <th className="px-4 py-3">Tipo</th>
                   <th className="px-4 py-3">Situação</th>
                   <th className="px-4 py-3 text-right">Ações</th>
@@ -350,8 +364,8 @@ export default function AdminPage() {
               <tbody>
                 {users.map((u) => (
                   <tr key={u.id} className="border-b border-gray-50 last:border-0">
-                    <td className="px-4 py-3 font-medium text-gray-800">{u.email}</td>
-                    <td className="px-4 py-3 text-gray-600">{u.name}</td>
+                    <td className="px-4 py-3 font-semibold text-gray-800">{u.name}</td>
+                    <td className="px-4 py-3 text-gray-600">{u.email}</td>
                     <td className="px-4 py-3">
                       {u.role === "admin" ? badge("Admin", "bg-brand/10 text-brand") : badge("Comum", "bg-gray-100 text-gray-600")}
                     </td>
@@ -363,21 +377,17 @@ export default function AdminPage() {
                           : badge("Inativo", "bg-gray-100 text-gray-500")}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-wrap justify-end gap-1.5 text-xs font-medium">
+                      <div className="flex flex-wrap justify-end gap-2 text-sm font-medium">
                         {!u.approved && (
-                          <button onClick={() => act(u.id, "PATCH", { approved: true })} className="rounded-md bg-brand-green/15 px-2.5 py-1 text-green-700 hover:bg-brand-green/25">Aprovar</button>
+                          <button onClick={() => act(u.id, "PATCH", { approved: true })} className="inline-flex items-center gap-1 rounded-lg bg-brand-green/15 px-3 py-1.5 text-green-700 transition hover:bg-brand-green/25" title="Aprovar acesso">
+                            ✓ Aprovar
+                          </button>
                         )}
-                        <button onClick={() => act(u.id, "PATCH", { active: !u.active })} className="rounded-md bg-gray-100 px-2.5 py-1 text-gray-700 hover:bg-gray-200">
-                          {u.active ? "Desativar" : "Ativar"}
+                        <button onClick={() => openEdit(u)} className="inline-flex items-center gap-1 rounded-lg bg-brand/10 px-3 py-1.5 text-brand transition hover:bg-brand/20" title="Editar usuário">
+                          ✎ Editar
                         </button>
-                        <button onClick={() => act(u.id, "PATCH", { role: u.role === "admin" ? "comum" : "admin" })} className="rounded-md bg-gray-100 px-2.5 py-1 text-gray-700 hover:bg-gray-200">
-                          {u.role === "admin" ? "→ Comum" : "→ Admin"}
-                        </button>
-                        <button onClick={() => { setResetTarget(u); setResetPw(""); setResetErr(""); }} className="rounded-md bg-gray-100 px-2.5 py-1 text-gray-700 hover:bg-gray-200">
-                          Redefinir senha
-                        </button>
-                        <button onClick={() => setDelTarget(u)} className="rounded-md bg-red-50 px-2.5 py-1 text-red-600 hover:bg-red-100">
-                          Excluir
+                        <button onClick={() => setDelTarget(u)} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-red-600 transition hover:bg-red-100" title="Excluir usuário">
+                          🗑 Excluir
                         </button>
                       </div>
                     </td>
@@ -749,26 +759,49 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Modal: redefinir senha */}
-      <Modal open={!!resetTarget} title="Redefinir senha" onClose={() => setResetTarget(null)}>
-        <p className="mb-4 text-sm text-gray-600">
-          Definir uma nova senha para <b className="text-gray-800">{resetTarget?.email}</b>. A pessoa será
-          obrigada a trocá-la no próximo acesso.
-        </p>
-        <div className="flex gap-2">
-          <input
-            className={`${input} flex-1`} placeholder="Nova senha provisória"
-            value={resetPw} onChange={(e) => setResetPw(e.target.value)}
-          />
-          <button type="button" onClick={genPassword} className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
-            Gerar
-          </button>
+      {/* Modal: editar usuário */}
+      <Modal open={!!editTarget} title="Editar usuário" onClose={() => setEditTarget(null)}>
+        <div className="flex flex-col gap-4">
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-gray-700">Nome</span>
+            <input className={`${input} w-full`} value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-gray-700">E-mail</span>
+            <input type="email" className={`${input} w-full`} value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+          </label>
+          <div className="grid grid-cols-2 gap-4">
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-gray-700">Tipo</span>
+              <select className={`${input} w-full`} value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}>
+                <option value="comum">Comum</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-gray-700">Situação</span>
+              <select className={`${input} w-full`} value={editForm.active ? "1" : "0"} onChange={(e) => setEditForm({ ...editForm, active: e.target.value === "1" })}>
+                <option value="1">Ativo</option>
+                <option value="0">Inativo</option>
+              </select>
+            </label>
+          </div>
+          <div className="text-sm">
+            <span className="mb-1 block font-medium text-gray-700">Nova senha <span className="font-normal text-gray-400">(opcional — deixe em branco para manter)</span></span>
+            <div className="flex gap-2">
+              <input className={`${input} flex-1`} placeholder="••••••••" value={editForm.password} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} />
+              <button type="button" onClick={() => setEditForm((f) => ({ ...f, password: genPassword() }))} className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                Gerar
+              </button>
+            </div>
+            {editForm.password && <p className="mt-1 text-xs text-gray-400">A pessoa será obrigada a trocá-la no próximo acesso.</p>}
+          </div>
         </div>
-        {resetErr && <p className="mt-2 text-sm text-red-600">{resetErr}</p>}
+        {editErr && <p className="mt-2 text-sm text-red-600">{editErr}</p>}
         <div className="mt-5 flex justify-end gap-2">
-          <button onClick={() => setResetTarget(null)} className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Cancelar</button>
-          <button onClick={confirmReset} disabled={!resetPw} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
-            Redefinir
+          <button onClick={() => setEditTarget(null)} className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Cancelar</button>
+          <button onClick={confirmEdit} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">
+            Salvar alterações
           </button>
         </div>
       </Modal>
