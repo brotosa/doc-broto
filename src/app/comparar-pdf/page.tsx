@@ -7,6 +7,32 @@ import { FileDropzone } from "@/components/FileDropzone";
 
 const tool = getTool("comparar-pdf")!;
 
+type Seg = { t: "eq" | "del" | "ins"; s: string };
+
+// Diff por LCS (Longest Common Subsequence) sobre tokens.
+function diffTokens(A: string[], B: string[]): Seg[] {
+  const n = A.length, m = B.length;
+  const dp: Uint16Array[] = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--)
+    for (let j = m - 1; j >= 0; j--)
+      dp[i][j] = A[i] === B[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  const out: Seg[] = [];
+  let i = 0, j = 0;
+  const push = (t: Seg["t"], s: string) => {
+    const last = out[out.length - 1];
+    if (last && last.t === t) last.s += s;
+    else out.push({ t, s });
+  };
+  while (i < n && j < m) {
+    if (A[i] === B[j]) { push("eq", A[i]); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { push("del", A[i]); i++; }
+    else { push("ins", B[j]); j++; }
+  }
+  while (i < n) push("del", A[i++]);
+  while (j < m) push("ins", B[j++]);
+  return out;
+}
+
 export default function ComparePage() {
   const [a, setA] = useState<File[]>([]);
   const [b, setB] = useState<File[]>([]);
@@ -15,6 +41,10 @@ export default function ComparePage() {
   const [diffPct, setDiffPct] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [textDiff, setTextDiff] = useState<Seg[] | null>(null);
+  const [textBusy, setTextBusy] = useState(false);
+  const [textNote, setTextNote] = useState("");
+  const [lineMode, setLineMode] = useState(false);
 
   const canvasA = useRef<HTMLCanvasElement>(null);
   const canvasB = useRef<HTMLCanvasElement>(null);
@@ -103,7 +133,67 @@ export default function ComparePage() {
     };
   }, [a, b, page]);
 
+  async function extractText(file: File): Promise<string> {
+    const { pdfjsLib } = await import("@/lib/pdfjs");
+    const doc = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    let out = "";
+    for (let i = 1; i <= doc.numPages; i++) {
+      const pg = await doc.getPage(i);
+      const c = await pg.getTextContent();
+      let line = "";
+      let lastY: number | null = null;
+      for (const it of c.items as Array<{ str: string; transform: number[] }>) {
+        const y = it.transform[5];
+        if (lastY !== null && Math.abs(y - lastY) > 3) { out += line.trimEnd() + "\n"; line = ""; }
+        line += it.str;
+        lastY = y;
+      }
+      out += line.trimEnd() + "\n";
+    }
+    return out.trim();
+  }
+
+  async function runTextDiff() {
+    setTextBusy(true);
+    setTextNote("");
+    setTextDiff(null);
+    try {
+      const [ta, tb] = await Promise.all([extractText(a[0]), extractText(b[0])]);
+      if (!ta && !tb) {
+        setTextNote("Nenhum texto selecionável (PDFs escaneados). Use o realce visual acima ou passe antes pelo OCR.");
+        return;
+      }
+      // Palavra a palavra; se muito grande, cai para comparação por linha.
+      let A = ta.split(/(\s+)/).filter((t) => t.length);
+      let B = tb.split(/(\s+)/).filter((t) => t.length);
+      let line = false;
+      if (A.length > 3500 || B.length > 3500) {
+        A = ta.split(/\n/);
+        B = tb.split(/\n/);
+        line = true;
+        if (A.length > 8000 || B.length > 8000) {
+          setTextNote("Documento muito grande para comparar o texto — use o realce visual acima.");
+          return;
+        }
+        setTextNote("Documento grande — comparação feita por linha.");
+      }
+      setLineMode(line);
+      setTextDiff(diffTokens(A, B));
+    } catch (e) {
+      setTextNote("Não foi possível comparar o texto.");
+      console.error(e);
+    } finally {
+      setTextBusy(false);
+    }
+  }
+
   const ready = a.length > 0 && b.length > 0;
+  const diffStats = textDiff
+    ? {
+        add: textDiff.filter((s) => s.t === "ins").reduce((n, s) => n + (lineMode ? 1 : s.s.trim().split(/\s+/).filter(Boolean).length), 0),
+        del: textDiff.filter((s) => s.t === "del").reduce((n, s) => n + (lineMode ? 1 : s.s.trim().split(/\s+/).filter(Boolean).length), 0),
+      }
+    : null;
 
   return (
     <ToolShell tool={tool}>
@@ -148,6 +238,46 @@ export default function ComparePage() {
                 <canvas ref={c.ref} className="w-full" />
               </div>
             ))}
+          </div>
+
+          {/* Diferenças de TEXTO (palavra a palavra) */}
+          <div className="mt-8 border-t border-gray-100 pt-6">
+            <div className="mb-3 flex flex-wrap items-center gap-3">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-gray-400">Diferenças de texto</h3>
+              <button
+                onClick={runTextDiff}
+                disabled={textBusy}
+                className="rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:opacity-50"
+              >
+                {textBusy ? "Comparando…" : textDiff ? "Recomparar texto" : "Comparar texto"}
+              </button>
+              {diffStats && (
+                <span className="ml-auto flex items-center gap-2 text-xs">
+                  <span className="rounded bg-red-50 px-2 py-1 font-medium text-red-600">− {diffStats.del} {lineMode ? "linha(s)" : "palavra(s)"} removida(s)</span>
+                  <span className="rounded bg-green-50 px-2 py-1 font-medium text-green-700">+ {diffStats.add} adicionada(s)</span>
+                </span>
+              )}
+            </div>
+            {textNote && <p className="mb-3 text-sm text-gray-500">{textNote}</p>}
+            {textDiff && (
+              <>
+                <div className="mb-2 flex gap-4 text-xs text-gray-500">
+                  <span><span className="rounded bg-red-100 px-1 text-red-700 line-through">vermelho</span> = removido (A)</span>
+                  <span><span className="rounded bg-green-100 px-1 text-green-800">verde</span> = adicionado (B)</span>
+                </div>
+                <div className="max-h-[28rem] overflow-auto whitespace-pre-wrap rounded-xl border border-gray-200 bg-white p-4 text-sm leading-relaxed text-gray-700">
+                  {textDiff.map((s, i) =>
+                    s.t === "eq" ? (
+                      <span key={i}>{s.s}{lineMode ? "\n" : ""}</span>
+                    ) : s.t === "del" ? (
+                      <span key={i} className="rounded bg-red-100 text-red-700 line-through">{s.s}{lineMode ? "\n" : ""}</span>
+                    ) : (
+                      <span key={i} className="rounded bg-green-100 text-green-800">{s.s}{lineMode ? "\n" : ""}</span>
+                    )
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
