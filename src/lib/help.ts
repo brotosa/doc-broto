@@ -2,6 +2,8 @@
 // Texto simples (sem HTML). O catálogo em si vem de tools.ts.
 export const HELP_STEPS: Record<string, string[]> = {
   "juntar-pdf": ["Envie dois ou mais PDFs.", "Arraste os arquivos para definir a ordem (ou use as setas ↑ ↓).", "Clique em Juntar PDF."],
+  "combinar-pdf": ["Envie 2+ arquivos misturados (PDF, Word, Excel, PowerPoint).", "Arraste para definir a ordem.", "Clique em Combinar em PDF — sai um único PDF."],
+  "combinar-word": ["Envie 2+ arquivos (PDF, Word, Excel, PowerPoint).", "Arraste para definir a ordem.", "Clique em Combinar em Word — sai um único .docx editável."],
   "dividir-pdf": ["Envie o PDF.", "Escolha Intervalo (ex.: 1-3) ou Cada página.", "Clique em Dividir PDF."],
   "rodar-pdf": ["Envie um ou mais PDFs.", "Escolha o sentido do giro (90° / 180°).", "Clique em Rodar PDF."],
   "organizar-pdf": ["Envie o PDF.", "Arraste as miniaturas para reordenar (ou use ← →); remova com ✕.", "Clique em Organizar PDF."],

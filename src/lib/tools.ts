@@ -42,6 +42,28 @@ export const TOOLS: Tool[] = [
     ready: true,
   },
   {
+    slug: "combinar-pdf",
+    title: "Combinar em PDF",
+    description:
+      "Junte arquivos misturados — PDF, Word, Excel, PowerPoint — em um único PDF, na ordem que quiser.",
+    category: "organizar",
+    color: "bg-brand text-white",
+    glyph: "⧉",
+    ready: true,
+    isNew: true,
+  },
+  {
+    slug: "combinar-word",
+    title: "Combinar em Word",
+    description:
+      "Junte vários arquivos (PDF, Word, Excel, PowerPoint) em um único documento Word (.docx) editável.",
+    category: "converter",
+    color: "bg-brand text-white",
+    glyph: "W",
+    ready: true,
+    isNew: true,
+  },
+  {
     slug: "dividir-pdf",
     title: "Dividir PDF",
     description:
