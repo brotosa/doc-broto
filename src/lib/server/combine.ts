@@ -44,5 +44,5 @@ export async function combineToPdf(files: InputFile[]): Promise<Buffer> {
  */
 export async function combineToWord(files: InputFile[]): Promise<Buffer> {
   const pdf = await combineToPdf(files);
-  return pdfToOfficePy(pdf, "docx");
+  return (await pdfToOfficePy(pdf, "docx")).out;
 }

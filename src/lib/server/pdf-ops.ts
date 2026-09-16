@@ -173,6 +173,74 @@ export async function pdfToText(input: Buffer): Promise<Buffer> {
   });
 }
 
+// Divide o texto do pdftotext por página (form-feed \f). O pdftotext costuma
+// emitir um \f após a última página, gerando uma entrada vazia no fim — que
+// removemos para não inventar uma "página" extra.
+function splitPages(text: string): string[] {
+  const pages = text.split("\f").map((p) => p.replace(/[ \t]+$/gm, "").trim());
+  while (pages.length > 1 && pages[pages.length - 1] === "") pages.pop();
+  return pages;
+}
+
+/**
+ * PDF → Markdown: extrai o texto por página (pdftotext -layout) e monta um
+ * documento Markdown com um cabeçalho por página. Determinístico, sem IA.
+ */
+export async function pdfToMarkdown(input: Buffer): Promise<Buffer> {
+  return withWorkspace(async (dir) => {
+    const inPath = join(dir, "in.pdf");
+    const outPath = join(dir, "out.txt");
+    await writeFile(inPath, input);
+    await run("pdftotext", ["-layout", "-enc", "UTF-8", inPath, outPath], { timeoutMs: 120_000 });
+    const raw = (await readFile(outPath)).toString("utf8");
+    if (!raw.replace(/\s/g, "").length) {
+      throw new ProcessingError(
+        "Este PDF não tem texto selecionável (parece ser escaneado). Use o OCR antes de converter para Markdown."
+      );
+    }
+    const pages = splitPages(raw);
+    const md = pages
+      .map((p, i) => `## Página ${i + 1}\n\n${p || "_(sem texto)_"}`)
+      .join("\n\n---\n\n");
+    return Buffer.from(md + "\n", "utf8");
+  });
+}
+
+/**
+ * PDF → JSON estruturado: metadados (pdfinfo) + texto por página. Útil para
+ * integrações. Determinístico, sem IA.
+ */
+export async function pdfToJson(input: Buffer, fileName = "documento.pdf"): Promise<Buffer> {
+  return withWorkspace(async (dir) => {
+    const inPath = join(dir, "in.pdf");
+    const outPath = join(dir, "out.txt");
+    await writeFile(inPath, input);
+    await run("pdftotext", ["-layout", "-enc", "UTF-8", inPath, outPath], { timeoutMs: 120_000 });
+    const raw = (await readFile(outPath)).toString("utf8");
+    const pages = splitPages(raw);
+
+    // Metadados via pdfinfo (falha silenciosa se indisponível).
+    const meta: Record<string, string> = {};
+    try {
+      const { stdout } = await run("pdfinfo", [inPath], { timeoutMs: 30_000 });
+      for (const line of stdout.split("\n")) {
+        const idx = line.indexOf(":");
+        if (idx > 0) meta[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
+      }
+    } catch {
+      /* sem pdfinfo → segue sem metadados */
+    }
+
+    const doc = {
+      arquivo: fileName,
+      paginas: pages.length,
+      metadados: meta,
+      conteudo: pages.map((texto, i) => ({ pagina: i + 1, texto })),
+    };
+    return Buffer.from(JSON.stringify(doc, null, 2), "utf8");
+  });
+}
+
 /** OCR de uma imagem (JPG/PNG) para texto via Tesseract. */
 export async function imageToText(input: Buffer, ext: string, lang = "por+eng"): Promise<Buffer> {
   return withWorkspace(async (dir) => {

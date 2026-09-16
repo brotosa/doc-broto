@@ -5,6 +5,8 @@ import type { Tool } from "@/lib/tools";
 import { ToolShell } from "./ToolShell";
 import { FileDropzone } from "./FileDropzone";
 import { useServerAction } from "@/lib/useServerAction";
+import { downloadBlob } from "@/lib/download";
+import { makeZip } from "@/lib/zip";
 
 type BuildResult =
   | { url: string; init: RequestInit; downloadName?: string }
@@ -21,6 +23,7 @@ export function BackendTool({
   controls,
   minFiles = 1,
   withPassword = false,
+  batch = false,
 }: {
   tool: Tool;
   accept?: string;
@@ -35,10 +38,16 @@ export function BackendTool({
   minFiles?: number;
   /** Mostra um campo opcional de senha (para PDFs protegidos). */
   withPassword?: boolean;
+  /** Processa cada arquivo separadamente e entrega um .zip (1 entrada → 1 saída). */
+  batch?: boolean;
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const [password, setPassword] = useState("");
-  const { busy, error, result, submit, setError } = useServerAction();
+  const { busy, error, result, notice, submit, setError, setNotice } = useServerAction();
+  // Estado próprio do modo lote (o useServerAction cuida do caso 1 arquivo).
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [batchMsg, setBatchMsg] = useState<string | null>(null);
+  const isBatch = batch && multiple && files.length > 1;
 
   // Barra de progresso animada durante o processamento (o envio é um único
   // request, então avançamos suavemente até ~92% e completamos ao terminar).
@@ -60,6 +69,10 @@ export function BackendTool({
   }, [busy]);
 
   const onSubmit = async () => {
+    if (isBatch && responseKind === "download") {
+      await runBatch();
+      return;
+    }
     const built = build(files, password);
     if ("error" in built) {
       setError(built.error);
@@ -74,6 +87,42 @@ export function BackendTool({
       await submit(built.url, built.init, { kind: "json" });
     }
   };
+
+  // Processa cada arquivo, junta as saídas num .zip e entrega ao final.
+  const runBatch = async () => {
+    setError(null);
+    setNotice(null);
+    setBatchBusy(true);
+    const results: { name: string; data: Uint8Array }[] = [];
+    const avisos = new Set<string>();
+    try {
+      for (let i = 0; i < files.length; i++) {
+        setBatchMsg(`Processando ${i + 1} de ${files.length}: ${files[i].name}`);
+        const built = build([files[i]], password);
+        if ("error" in built) throw new Error(`${files[i].name}: ${built.error}`);
+        const res = await fetch(built.url, { method: "POST", ...built.init });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(`${files[i].name}: ${data.error || `erro ${res.status}`}`);
+        }
+        const aviso = res.headers.get("X-Broto-Aviso");
+        if (aviso) avisos.add(decodeURIComponent(aviso));
+        const buf = new Uint8Array(await res.arrayBuffer());
+        results.push({ name: built.downloadName || `${files[i].name}.out`, data: buf });
+      }
+      setBatchMsg("Empacotando em .zip…");
+      const zip = makeZip(results);
+      downloadBlob(zip, `lote-${tool.slug}.zip`, "application/zip");
+      if (avisos.size) setNotice([...avisos].join(" "));
+    } catch (e) {
+      setError((e as Error).message || "Falha ao processar o lote.");
+    } finally {
+      setBatchBusy(false);
+      setBatchMsg(null);
+    }
+  };
+
+  const working = busy || batchBusy;
 
   return (
     <ToolShell tool={tool}>
@@ -100,7 +149,20 @@ export function BackendTool({
         </div>
       )}
 
+      {isBatch && (
+        <p className="mt-4 rounded-lg bg-brand/5 px-3 py-2 text-sm text-gray-600">
+          <b>{files.length} arquivos</b> selecionados — cada um será processado e você recebe um <b>.zip</b> com todos.
+        </p>
+      )}
+
       {error && <p className="mt-4 text-sm text-brand">{error}</p>}
+
+      {notice && (
+        <p className="mt-4 flex items-start gap-2 rounded-lg border border-brand-yellow bg-brand-yellow/15 px-3 py-2 text-sm text-brand-ink">
+          <span aria-hidden>⚠️</span>
+          <span>{notice}</span>
+        </p>
+      )}
 
       {result != null && (
         <div className="mt-6">
@@ -121,13 +183,19 @@ export function BackendTool({
 
       <button
         onClick={onSubmit}
-        disabled={files.length < minFiles || busy}
+        disabled={files.length < minFiles || working}
         className="mt-6 w-full rounded-xl bg-brand py-3 font-semibold text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {busy ? "Convertendo..." : buttonLabel}
+        {working ? "Processando..." : isBatch ? `${buttonLabel} (${files.length} → .zip)` : buttonLabel}
       </button>
 
-      {(busy || progress > 0) && (
+      {batchBusy && (
+        <p className="mt-3 text-center text-xs text-gray-500" aria-live="polite">
+          {batchMsg || "Processando lote…"}
+        </p>
+      )}
+
+      {!batchBusy && (busy || progress > 0) && (
         <div className="mt-3" aria-live="polite">
           <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
             <div

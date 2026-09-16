@@ -1,7 +1,19 @@
 import { NextResponse } from "next/server";
 import { ProcessingError } from "./exec";
+import { maxUploadBytes } from "./limits";
 
+// Limite padrão (fallback). O limite efetivo é configurável pelo admin e lido
+// via `maxUploadBytes()`; esta constante permanece para compatibilidade.
 export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // 100 MB
+
+/** Valida o tamanho de um arquivo contra o limite configurável do admin. */
+export async function assertUploadSize(size: number): Promise<void> {
+  if (size === 0) throw new ProcessingError("Arquivo vazio.");
+  const max = await maxUploadBytes();
+  if (size > max) {
+    throw new ProcessingError(`Arquivo excede o limite de ${Math.round(max / (1024 * 1024))} MB.`);
+  }
+}
 
 /** Pull a single required File out of multipart/form-data with validation. */
 export async function readUpload(
@@ -14,10 +26,7 @@ export async function readUpload(
   if (!(file instanceof File)) {
     throw new ProcessingError(`Campo "${field}" ausente ou inválido.`);
   }
-  if (file.size === 0) throw new ProcessingError("Arquivo vazio.");
-  if (file.size > MAX_UPLOAD_BYTES) {
-    throw new ProcessingError("Arquivo excede o limite de 100 MB.");
-  }
+  await assertUploadSize(file.size);
   if (accept && !accept.test(file.name)) {
     throw new ProcessingError("Formato de arquivo não suportado.");
   }
@@ -28,22 +37,26 @@ export async function fileToBuffer(file: File): Promise<Buffer> {
   return Buffer.from(await file.arrayBuffer());
 }
 
-/** Standard binary file download response. */
+/** Standard binary file download response. `warning` vira o header X-Broto-Aviso. */
 export function fileResponse(
   data: Buffer | Uint8Array,
   filename: string,
-  contentType = "application/pdf"
+  contentType = "application/pdf",
+  warning?: string
 ): NextResponse {
   const body = new Uint8Array(data);
-  return new NextResponse(body, {
-    status: 200,
-    headers: {
-      "Content-Type": contentType,
-      "Content-Disposition": `attachment; filename="${encodeURIComponent(filename)}"`,
-      "Content-Length": String(body.byteLength),
-      "Cache-Control": "no-store",
-    },
-  });
+  const headers: Record<string, string> = {
+    "Content-Type": contentType,
+    "Content-Disposition": `attachment; filename="${encodeURIComponent(filename)}"`,
+    "Content-Length": String(body.byteLength),
+    "Cache-Control": "no-store",
+  };
+  if (warning) {
+    headers["X-Broto-Aviso"] = encodeURIComponent(warning);
+    // Necessário para o header ser visível ao fetch do navegador.
+    headers["Access-Control-Expose-Headers"] = "X-Broto-Aviso";
+  }
+  return new NextResponse(body, { status: 200, headers });
 }
 
 /** Convert thrown errors into a JSON error response. */

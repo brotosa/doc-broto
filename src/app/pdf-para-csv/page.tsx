@@ -9,7 +9,9 @@ export default function Page() {
   return (
     <BackendTool
       tool={tool}
-      hint="Selecione um PDF com tabela"
+      hint="Selecione um ou mais PDFs com tabela"
+      multiple
+      batch
       buttonLabel="Converter para CSV"
       responseKind="download"
       withPassword

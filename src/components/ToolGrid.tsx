@@ -72,13 +72,33 @@ function Cell({ tool, i, wide }: { tool: Tool; i: number; wide: boolean }) {
   );
 }
 
+function norm(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
 export function ToolGrid() {
   const [filter, setFilter] = useState<"todas" | ToolCategory>("todas");
-  const isAll = filter === "todas";
-  const visible = isAll ? TOOLS : TOOLS.filter((t) => t.category === filter);
+  const [query, setQuery] = useState("");
+  const q = norm(query.trim());
+  const isAll = filter === "todas" && !q;
+  const base = filter === "todas" || q ? TOOLS : TOOLS.filter((t) => t.category === filter);
+  const visible = q
+    ? base.filter((t) => norm(t.title).includes(q) || norm(t.description).includes(q))
+    : base;
 
   return (
     <div>
+      <div className="mb-6">
+        <input
+          type="search"
+          data-search
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Buscar ferramenta… (tecla /)"
+          aria-label="Buscar ferramenta"
+          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-brand"
+        />
+      </div>
       <div className="mb-8 flex flex-wrap gap-2">
         {FILTERS.map((f) => {
           const active = filter === f.key;
@@ -98,14 +118,20 @@ export function ToolGrid() {
         })}
       </div>
 
-      {/* key={filter} remonta a grade → a cascata roda de novo ao filtrar */}
-      <div key={filter} className={styles.grid}>
-        {visible.map((tool, i) => {
-          const variant = isAll ? FEATURED[tool.slug] : undefined;
-          if (variant) return <FeaturedCell key={tool.slug} tool={tool} i={i} variant={variant} />;
-          return <Cell key={tool.slug} tool={tool} i={i} wide={isAll && WIDE.has(tool.slug)} />;
-        })}
-      </div>
+      {visible.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
+          Nenhuma ferramenta encontrada para “{query}”.
+        </p>
+      ) : (
+        /* key remonta a grade → a cascata roda de novo ao filtrar/buscar */
+        <div key={filter + q} className={styles.grid}>
+          {visible.map((tool, i) => {
+            const variant = isAll ? FEATURED[tool.slug] : undefined;
+            if (variant) return <FeaturedCell key={tool.slug} tool={tool} i={i} variant={variant} />;
+            return <Cell key={tool.slug} tool={tool} i={i} wide={isAll && WIDE.has(tool.slug)} />;
+          })}
+        </div>
+      )}
     </div>
   );
 }

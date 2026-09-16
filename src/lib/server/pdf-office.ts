@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { writeFile, readFile } from "node:fs/promises";
 import { run, withWorkspace, ProcessingError } from "./exec";
+import { getLimits } from "./limits";
 
 // Conversões PDF -> Office com motores dedicados (muito melhores que o
 // writer_pdf_import do LibreOffice, que perdia imagens/páginas):
@@ -304,11 +305,17 @@ else:
     raise SystemExit("modo invalido")
 `;
 
+export type PdfToOfficeResult = {
+  out: Buffer;
+  /** true quando o PDF praticamente não tem texto extraível (parece escaneado). */
+  scanned: boolean;
+};
+
 export async function pdfToOfficePy(
   input: Buffer,
   target: "docx" | "pptx" | "xlsx" | "csv",
   password = ""
-): Promise<Buffer> {
+): Promise<PdfToOfficeResult> {
   return withWorkspace(async (dir) => {
     const inPath = join(dir, "in.pdf");
     const outPath = join(dir, `out.${target}`);
@@ -335,9 +342,19 @@ export async function pdfToOfficePy(
         }
       }
     }
+    // Detecta PDF escaneado (sem texto extraível) para avisar o usuário — não
+    // bloqueia a conversão. Falha silenciosa: se o pdftotext não rodar, ignora.
+    let scanned = false;
     try {
-      await run(PYTHON, [scriptPath, target, srcPath, outPath], { timeoutMs: 300_000 });
-      return await readFile(outPath);
+      const { stdout } = await run("pdftotext", ["-layout", "-enc", "UTF-8", srcPath, "-"], { timeoutMs: 30_000 });
+      scanned = stdout.replace(/\s/g, "").length < 30;
+    } catch {
+      /* ignora — detecção é opcional */
+    }
+    try {
+      const { timeoutSec } = await getLimits();
+      await run(PYTHON, [scriptPath, target, srcPath, outPath], { timeoutMs: timeoutSec * 1000 });
+      return { out: await readFile(outPath), scanned };
     } catch (e) {
       const err = e as ProcessingError;
       const blob = `${err.message || ""} ${err.detail || ""}`;

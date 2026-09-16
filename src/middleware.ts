@@ -45,6 +45,9 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Aplica a tudo, menos assets estáticos.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|broto-logo.svg|robots.txt).*)"],
+  // Aplica a tudo, menos assets estáticos e os arquivos públicos do PWA
+  // (service worker, manifest e ícones) — que precisam ser acessíveis sem login.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|broto-logo.svg|robots.txt|sw.js|manifest.webmanifest|icon-192.png|icon-512.png|icon-maskable-512.png).*)",
+  ],
 };

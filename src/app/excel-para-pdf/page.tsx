@@ -10,13 +10,19 @@ export default function Page() {
     <BackendTool
       tool={tool}
       accept=".xls,.xlsx,.ods,.csv"
-      hint="Selecione um arquivo Excel (.xls, .xlsx)"
+      hint="Selecione um ou mais arquivos Excel (.xls, .xlsx)"
+      multiple
+      batch
       buttonLabel="Converter para PDF"
       responseKind="download"
       build={(files) => {
         const fd = new FormData();
         fd.append("file", files[0]);
-        return { url: "/api/office-to-pdf", init: { body: fd }, downloadName: "planilha.pdf" };
+        return {
+          url: "/api/office-to-pdf",
+          init: { body: fd },
+          downloadName: files[0].name.replace(/\.[^.]+$/, "") + ".pdf",
+        };
       }}
     />
   );

@@ -43,6 +43,8 @@ export interface Store {
   count(): Promise<number>;
   addAudit(row: AuditRow): Promise<void>;
   listAudit(limit: number, category?: string): Promise<AuditRow[]>;
+  /** Lista registros de uma categoria feitos por um usuário (by_name). */
+  listAuditByUser(byName: string, limit: number, category?: string): Promise<AuditRow[]>;
   getSetting<T>(key: string): Promise<T | null>;
   setSetting<T>(key: string, value: T): Promise<void>;
   /** Rate limit persistente: consome 1 tentativa para `bucket`. */
@@ -91,6 +93,11 @@ class MemStore implements Store {
   async listAudit(limit: number, category?: string) {
     const src = category ? this.audit.filter((r) => (r.category ?? "system") === category) : this.audit;
     return src.slice(0, limit);
+  }
+  async listAuditByUser(byName: string, limit: number, category = "activity") {
+    return this.audit
+      .filter((r) => (r.category ?? "system") === category && r.by_name === byName)
+      .slice(0, limit);
   }
   async getSetting<T>(key: string) {
     return (this.settings.get(key) as T) ?? null;
@@ -267,6 +274,21 @@ class PgStore implements Store {
     const { rows } = category
       ? await pool.query("SELECT * FROM audit WHERE category=$1 ORDER BY at DESC LIMIT $2", [category, limit])
       : await pool.query("SELECT * FROM audit ORDER BY at DESC LIMIT $1", [limit]);
+    return rows.map((r) => ({
+      at: new Date(r.at).getTime(),
+      action: r.action,
+      by_name: r.by_name,
+      target_name: r.target_name,
+      detail: r.detail,
+      category: r.category ?? "system",
+    }));
+  }
+  async listAuditByUser(byName: string, limit: number, category = "activity") {
+    const pool = await this.getPool();
+    const { rows } = await pool.query(
+      "SELECT * FROM audit WHERE category=$1 AND by_name=$2 ORDER BY at DESC LIMIT $3",
+      [category, byName, limit]
+    );
     return rows.map((r) => ({
       at: new Date(r.at).getTime(),
       action: r.action,

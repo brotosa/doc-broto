@@ -10,13 +10,19 @@ export default function Page() {
     <BackendTool
       tool={tool}
       accept=".ppt,.pptx,.odp"
-      hint="Selecione um arquivo PowerPoint (.ppt, .pptx)"
+      hint="Selecione um ou mais arquivos PowerPoint (.ppt, .pptx)"
+      multiple
+      batch
       buttonLabel="Converter para PDF"
       responseKind="download"
       build={(files) => {
         const fd = new FormData();
         fd.append("file", files[0]);
-        return { url: "/api/office-to-pdf", init: { body: fd }, downloadName: "apresentacao.pdf" };
+        return {
+          url: "/api/office-to-pdf",
+          init: { body: fd },
+          downloadName: files[0].name.replace(/\.[^.]+$/, "") + ".pdf",
+        };
       }}
     />
   );
