@@ -329,7 +329,9 @@ export async function pdfToOfficePy(
           if (dec.length > 0) srcPath = decPath;
           else throw new Error("empty");
         } catch {
-          throw new ProcessingError("Senha incorreta para este PDF. Verifique a senha e tente novamente.");
+          throw new ProcessingError(
+            "Senha incorreta para este PDF. Sem a senha correta, o conteúdo é criptografado e não pode ser recuperado — solicite o arquivo original a quem o enviou."
+          );
         }
       }
     }
@@ -341,7 +343,7 @@ export async function pdfToOfficePy(
       const blob = `${err.message || ""} ${err.detail || ""}`;
       if (blob.includes("PDF_PROTEGIDO")) {
         throw new ProcessingError(
-          "Este PDF está protegido por senha. Informe a senha no campo “PDF protegido por senha?” ou use a ferramenta “Desbloquear PDF”."
+          "Este PDF exige uma senha de abertura. Informe a senha no campo “PDF protegido por senha?” acima. Se você não tem a senha, não é possível recuperá-lo — solicite o arquivo original a quem o enviou."
         );
       }
       // Sempre devolve um ProcessingError (mensagem clara, 400) em vez de
