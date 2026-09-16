@@ -158,6 +158,7 @@ export default function AjudaPage() {
         <p className="mt-4 text-xs text-gray-500">
           A senha informada é usada apenas para abrir o arquivo naquela conversão e não é armazenada.
         </p>
+        <Shot name="pdf-senha" alt="Campo “PDF protegido por senha?” em uma conversão" />
       </section>
 
       {/* Ferramentas por categoria */}
