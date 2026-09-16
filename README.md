@@ -20,7 +20,8 @@ Ocultar/redação (rasteriza a página, destruindo o conteúdo sob a tarja).
 | Ferramenta | Motor |
 | --- | --- |
 | Word/PowerPoint/Excel → PDF | LibreOffice (`soffice`) |
-| PDF → Word/Excel/PowerPoint | LibreOffice (`writer_pdf_import`) — fidelidade best-effort |
+| PDF → Word/Excel/PowerPoint/CSV | Python (`pdf2docx`, `python-pptx`, `openpyxl`, PyMuPDF) — alta fidelidade; aceita senha de abertura via `qpdf --decrypt` |
+| Combinar arquivos mistos → PDF / Word | LibreOffice + `pdfunite` (+ conversão de volta p/ Word) |
 | Comprimir (texto preservado) | Ghostscript |
 | Proteger / Desbloquear (senha) | qpdf |
 | OCR (PDF pesquisável) | ocrmypdf / Tesseract (por+eng) |
@@ -31,6 +32,15 @@ Ocultar/redação (rasteriza a página, destruindo o conteúdo sob a tarja).
 
 As ferramentas de IA exigem `ANTHROPIC_API_KEY`; sem ela, retornam um aviso claro e as
 demais continuam funcionando.
+
+### PDFs protegidos por senha
+
+Há dois tipos de proteção. **Restrições de dono** (o PDF abre normal, mas bloqueia
+imprimir/copiar) são removidas **sem senha** — as conversões funcionam direto. **Senha de
+abertura** criptografa o conteúdo: as conversões PDF→Office/CSV e o Desbloquear PDF aceitam
+a senha (campo opcional) e rodam `qpdf --decrypt` antes de processar. **Sem a senha correta
+não há como recuperar** um PDF com senha de abertura — é a criptografia funcionando; as
+mensagens de erro orientam o usuário a solicitar o arquivo original.
 
 ## Rodar localmente
 

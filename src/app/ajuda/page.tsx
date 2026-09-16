@@ -70,6 +70,7 @@ export default function AjudaPage() {
       <nav className="mt-8 flex flex-wrap gap-2 text-sm">
         <a href="#comecar" className="rounded-lg bg-gray-100 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-200">Primeiros passos</a>
         <a href="#fluxo" className="rounded-lg bg-gray-100 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-200">Como usar</a>
+        <a href="#pdf-senha" className="rounded-lg bg-gray-100 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-200">PDFs com senha</a>
         {CAT_ORDER.map((c) => (
           <a key={c} href={`#cat-${c}`} className="rounded-lg bg-gray-100 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-200">
             {CATEGORY_LABELS[c]}
@@ -120,6 +121,43 @@ export default function AjudaPage() {
           mostram uma barra de progresso.
         </p>
         <Shot name="fluxo-home" alt="Página inicial com as ferramentas" />
+      </section>
+
+      {/* PDFs protegidos por senha */}
+      <section id="pdf-senha" className="mt-12 scroll-mt-24">
+        <h2 className="text-2xl font-bold text-gray-900">PDFs protegidos por senha</h2>
+        <p className="mt-2 text-sm text-gray-600">
+          Um PDF pode estar protegido de <b>duas formas diferentes</b>. Entender a diferença ajuda a saber o que é
+          possível — e o que não é.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="rounded-2xl border border-brand-green/40 bg-brand-green/5 p-5">
+            <h3 className="text-base font-bold text-gray-900">Apenas restrições</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              O PDF <b>abre normalmente</b>, mas bloqueia imprimir, copiar ou editar. Essas restrições são do
+              <b> dono</b> do arquivo.
+            </p>
+            <p className="mt-2 text-sm font-medium text-gray-800">
+              ✅ Podemos remover <b>sem precisar de senha</b>. As conversões (Word, Excel, etc.) já funcionam
+              normalmente com esses arquivos.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-brand/30 bg-brand/5 p-5">
+            <h3 className="text-base font-bold text-gray-900">Senha de abertura</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              O PDF <b>pede uma senha para abrir</b>. O conteúdo fica <b>criptografado</b> — ninguém, nem o sistema,
+              consegue ler os dados sem a senha correta.
+            </p>
+            <p className="mt-2 text-sm font-medium text-gray-800">
+              🔒 Se você <b>tem a senha</b>, informe-a no campo <b>“PDF protegido por senha?”</b> e o arquivo é
+              desbloqueado e convertido num passo só. Se você <b>não tem a senha</b>, <b>não há como recuperá-lo</b> —
+              solicite o arquivo original a quem o enviou.
+            </p>
+          </div>
+        </div>
+        <p className="mt-4 text-xs text-gray-500">
+          A senha informada é usada apenas para abrir o arquivo naquela conversão e não é armazenada.
+        </p>
       </section>
 
       {/* Ferramentas por categoria */}
