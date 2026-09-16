@@ -304,22 +304,44 @@ else:
     raise SystemExit("modo invalido")
 `;
 
-export async function pdfToOfficePy(input: Buffer, target: "docx" | "pptx" | "xlsx" | "csv"): Promise<Buffer> {
+export async function pdfToOfficePy(
+  input: Buffer,
+  target: "docx" | "pptx" | "xlsx" | "csv",
+  password = ""
+): Promise<Buffer> {
   return withWorkspace(async (dir) => {
     const inPath = join(dir, "in.pdf");
     const outPath = join(dir, `out.${target}`);
     const scriptPath = join(dir, "conv.py");
     await writeFile(inPath, input);
     await writeFile(scriptPath, SCRIPT);
+    // Se veio senha, desbloqueia o PDF (qpdf) antes de converter.
+    let srcPath = inPath;
+    if (password) {
+      const decPath = join(dir, "dec.pdf");
+      try {
+        await run("qpdf", [`--password=${password}`, "--decrypt", inPath, decPath], { timeoutMs: 60_000 });
+        srcPath = decPath;
+      } catch {
+        // qpdf pode sair com aviso (código 3) mesmo tendo gerado o arquivo.
+        try {
+          const dec = await readFile(decPath);
+          if (dec.length > 0) srcPath = decPath;
+          else throw new Error("empty");
+        } catch {
+          throw new ProcessingError("Senha incorreta para este PDF. Verifique a senha e tente novamente.");
+        }
+      }
+    }
     try {
-      await run(PYTHON, [scriptPath, target, inPath, outPath], { timeoutMs: 300_000 });
+      await run(PYTHON, [scriptPath, target, srcPath, outPath], { timeoutMs: 300_000 });
       return await readFile(outPath);
     } catch (e) {
       const err = e as ProcessingError;
       const blob = `${err.message || ""} ${err.detail || ""}`;
       if (blob.includes("PDF_PROTEGIDO")) {
         throw new ProcessingError(
-          "Este PDF está protegido por senha. Desbloqueie primeiro com a ferramenta “Desbloquear PDF” e tente novamente."
+          "Este PDF está protegido por senha. Informe a senha no campo “PDF protegido por senha?” ou use a ferramenta “Desbloquear PDF”."
         );
       }
       // Sempre devolve um ProcessingError (mensagem clara, 400) em vez de

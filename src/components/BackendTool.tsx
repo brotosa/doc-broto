@@ -20,6 +20,7 @@ export function BackendTool({
   build,
   controls,
   minFiles = 1,
+  withPassword = false,
 }: {
   tool: Tool;
   accept?: string;
@@ -28,12 +29,15 @@ export function BackendTool({
   buttonLabel: string;
   responseKind: "download" | "json";
   /** Build the request from selected files; return {error} to block. */
-  build: (files: File[]) => BuildResult;
+  build: (files: File[], password?: string) => BuildResult;
   /** Extra control inputs rendered below the dropzone. */
   controls?: ReactNode;
   minFiles?: number;
+  /** Mostra um campo opcional de senha (para PDFs protegidos). */
+  withPassword?: boolean;
 }) {
   const [files, setFiles] = useState<File[]>([]);
+  const [password, setPassword] = useState("");
   const { busy, error, result, submit, setError } = useServerAction();
 
   // Barra de progresso animada durante o processamento (o envio é um único
@@ -56,7 +60,7 @@ export function BackendTool({
   }, [busy]);
 
   const onSubmit = async () => {
-    const built = build(files);
+    const built = build(files, password);
     if ("error" in built) {
       setError(built.error);
       return;
@@ -76,6 +80,25 @@ export function BackendTool({
       <FileDropzone files={files} onFiles={setFiles} multiple={multiple} accept={accept} hint={hint} />
 
       {files.length > 0 && controls}
+
+      {withPassword && files.length > 0 && (
+        <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-gray-700">
+              PDF protegido por senha? <span className="font-normal text-gray-400">(opcional)</span>
+            </span>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="off"
+              placeholder="Senha do PDF (deixe em branco se não tiver)"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+          </label>
+          <p className="mt-1 text-xs text-gray-400">Se o PDF tiver senha, informe-a aqui para desbloquear e converter num passo só.</p>
+        </div>
+      )}
 
       {error && <p className="mt-4 text-sm text-brand">{error}</p>}
 

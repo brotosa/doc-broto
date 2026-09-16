@@ -12,9 +12,11 @@ export default function Page() {
       hint="Selecione um PDF"
       buttonLabel="Converter para Word"
       responseKind="download"
-      build={(files) => {
+      withPassword
+      build={(files, password) => {
         const fd = new FormData();
         fd.append("file", files[0]);
+        if (password) fd.append("password", password);
         return { url: "/api/pdf-to-office?target=docx", init: { body: fd }, downloadName: "documento.docx" };
       }}
     />
