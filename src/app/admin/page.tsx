@@ -35,8 +35,48 @@ type SecurityPolicy = {
 const input = "rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-brand";
 const LOG_PAGE_SIZES = [10, 20, 50, 100];
 
+// Barras verticais simples (uso por dia) — sem dependência de gráfico.
+function MiniBars({ data }: { data: { label: string; value: number }[] }) {
+  const max = Math.max(1, ...data.map((d) => d.value));
+  return (
+    <div className="flex items-end gap-1.5" style={{ height: 120 }}>
+      {data.map((d, i) => (
+        <div key={i} className="flex flex-1 flex-col items-center justify-end gap-1" title={`${d.label}: ${d.value}`}>
+          <span className="text-[10px] text-gray-400">{d.value || ""}</span>
+          <div
+            className="w-full rounded-t bg-brand"
+            style={{ height: `${(d.value / max) * 90}px`, minHeight: d.value ? 3 : 1, opacity: d.value ? 1 : 0.25 }}
+          />
+          <span className="text-[9px] text-gray-400">{d.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Ranking horizontal (top ferramentas/usuários).
+function RankBars({ items }: { items: { label: string; count: number }[] }) {
+  if (!items.length) return <p className="text-sm text-gray-400">Sem dados ainda.</p>;
+  const max = Math.max(1, ...items.map((i) => i.count));
+  return (
+    <ul className="space-y-2">
+      {items.map((it) => (
+        <li key={it.label}>
+          <div className="mb-0.5 flex justify-between text-xs text-gray-600">
+            <span className="truncate pr-2">{it.label}</span>
+            <span className="shrink-0 font-semibold text-gray-500">{it.count}</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+            <div className="h-full rounded-full bg-brand-green" style={{ width: `${(it.count / max) * 100}%` }} />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function AdminPage() {
-  const [tab, setTab] = useState<"config" | "security" | "juridico" | "logs" | "activity">("config");
+  const [tab, setTab] = useState<"config" | "security" | "juridico" | "limits" | "metrics" | "logs" | "activity">("config");
   const [users, setUsers] = useState<Profile[]>([]);
   const [audit, setAudit] = useState<Audit[]>([]);
   const [activity, setActivity] = useState<Audit[]>([]);
@@ -82,8 +122,21 @@ export default function AdminPage() {
   const [sign, setSign] = useState<{ tsaUrl: string; timestampDefault: boolean } | null>(null);
   const [signMsg, setSignMsg] = useState("");
 
+  // limites operacionais (tamanho de upload, timeout, lote)
+  const [limits, setLimits] = useState<{ maxUploadMB: number; timeoutSec: number; maxBatch: number } | null>(null);
+  const [limitsMsg, setLimitsMsg] = useState("");
+
+  // métricas de uso
+  type Metrics = {
+    total: number; last7: number; activeUsers: number; sampled: boolean;
+    topTools: { label: string; count: number }[];
+    topUsers: { label: string; count: number }[];
+    perDay: { day: string; count: number }[];
+  };
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
+
   const load = useCallback(async () => {
-    const [u, a, p, act, pv, sp, se, sg] = await Promise.all([
+    const [u, a, p, act, pv, sp, se, sg, lm, mt] = await Promise.all([
       fetch("/api/admin/users").then((r) => r.json()),
       fetch("/api/admin/audit").then((r) => r.json()),
       fetch("/api/admin/policy").then((r) => r.json()),
@@ -92,6 +145,8 @@ export default function AdminPage() {
       fetch("/api/admin/session-policy").then((r) => r.json()),
       fetch("/api/admin/security-policy").then((r) => r.json()),
       fetch("/api/admin/sign-policy").then((r) => r.json()),
+      fetch("/api/admin/limits").then((r) => r.json()),
+      fetch("/api/admin/metrics").then((r) => r.json()),
     ]);
     setUsers(u.users || []);
     setAudit(a.entries || []);
@@ -101,6 +156,8 @@ export default function AdminPage() {
     if (sp.policy) setSessionPol(sp.policy);
     if (se.policy) setSecurity(se.policy);
     if (sg.policy) setSign(sg.policy);
+    if (lm.limits) setLimits(lm.limits);
+    if (mt && typeof mt.total === "number") setMetrics(mt);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -237,6 +294,21 @@ export default function AdminPage() {
     setSignMsg("Assinatura digital salva ✓");
   }
 
+  async function saveLimits(e: React.FormEvent) {
+    e.preventDefault();
+    if (!limits) return;
+    setLimitsMsg("");
+    const r = await fetch("/api/admin/limits", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(limits),
+    });
+    const d = await r.json();
+    if (!r.ok) { setLimitsMsg(d.error || "Falha ao salvar."); return; }
+    setLimits(d.limits);
+    setLimitsMsg("Limites salvos ✓");
+  }
+
   const genPassword = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$";
     let s = "";
@@ -351,7 +423,7 @@ export default function AdminPage() {
   const page = Math.min(logPage, totalPages - 1);
   const pageItems = filtered.slice(page * logPageSize, page * logPageSize + logPageSize);
 
-  const tabBtn = (key: "config" | "security" | "juridico" | "logs" | "activity", label: string, count?: number) => (
+  const tabBtn = (key: "config" | "security" | "juridico" | "limits" | "metrics" | "logs" | "activity", label: string, count?: number) => (
     <button
       onClick={() => setTab(key)}
       className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${tab === key ? "bg-white text-brand shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
@@ -373,6 +445,8 @@ export default function AdminPage() {
         {tabBtn("config", "Configurações", pend)}
         {tabBtn("security", "Segurança")}
         {tabBtn("juridico", "Jurídico")}
+        {tabBtn("limits", "Limites")}
+        {tabBtn("metrics", "Métricas")}
         {tabBtn("logs", "Logs")}
         {tabBtn("activity", "Atividade")}
       </div>
@@ -691,6 +765,96 @@ export default function AdminPage() {
                 registrado no log com a versão vigente.
               </p>
             </form>
+          )}
+        </div>
+      )}
+
+      {tab === "limits" && (
+        <div className="flex flex-col gap-8">
+          {limits && (
+            <form onSubmit={saveLimits} className="rounded-2xl border border-gray-100 bg-white p-5">
+              <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-gray-400">Limites operacionais</h2>
+              <p className="mb-4 text-sm text-gray-500">
+                Controlam o tamanho dos arquivos, o tempo de processamento e o lote. Valores muito altos podem
+                sobrecarregar o servidor.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Tamanho máx. por arquivo (MB)</span>
+                  <input
+                    type="number" min={1} max={1024}
+                    className={`${input} w-full`}
+                    value={limits.maxUploadMB}
+                    onChange={(e) => setLimits({ ...limits, maxUploadMB: Number(e.target.value) })}
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Tempo máx. de conversão (s)</span>
+                  <input
+                    type="number" min={30} max={1800}
+                    className={`${input} w-full`}
+                    value={limits.timeoutSec}
+                    onChange={(e) => setLimits({ ...limits, timeoutSec: Number(e.target.value) })}
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Máx. de arquivos por lote</span>
+                  <input
+                    type="number" min={2} max={100}
+                    className={`${input} w-full`}
+                    value={limits.maxBatch}
+                    onChange={(e) => setLimits({ ...limits, maxBatch: Number(e.target.value) })}
+                  />
+                </label>
+              </div>
+              <div className="mt-4 flex items-center gap-3">
+                <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar limites</button>
+                {limitsMsg && <span className={`text-sm ${limitsMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{limitsMsg}</span>}
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
+      {tab === "metrics" && (
+        <div className="flex flex-col gap-6">
+          {!metrics && <p className="text-sm text-gray-400">Carregando métricas…</p>}
+          {metrics && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-3">
+                {[
+                  { label: "Conversões registradas", value: metrics.total },
+                  { label: "Nos últimos 7 dias", value: metrics.last7 },
+                  { label: "Usuários ativos", value: metrics.activeUsers },
+                ].map((c) => (
+                  <div key={c.label} className="rounded-2xl border border-gray-100 bg-white p-5">
+                    <p className="text-3xl font-bold text-brand">{c.value}</p>
+                    <p className="mt-1 text-sm text-gray-500">{c.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-2xl border border-gray-100 bg-white p-5">
+                <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-gray-400">Uso por dia (14 dias)</h2>
+                <MiniBars data={metrics.perDay.map((d) => ({ label: d.day.slice(5), value: d.count }))} />
+              </div>
+
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="rounded-2xl border border-gray-100 bg-white p-5">
+                  <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-gray-400">Ferramentas mais usadas</h2>
+                  <RankBars items={metrics.topTools} />
+                </div>
+                <div className="rounded-2xl border border-gray-100 bg-white p-5">
+                  <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-gray-400">Usuários mais ativos</h2>
+                  <RankBars items={metrics.topUsers} />
+                </div>
+              </div>
+              {metrics.sampled && (
+                <p className="text-xs text-gray-400">
+                  * Mostrando a amostra mais recente de registros de atividade.
+                </p>
+              )}
+            </>
           )}
         </div>
       )}

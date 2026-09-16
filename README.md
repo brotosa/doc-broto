@@ -21,6 +21,7 @@ Ocultar/redação (rasteriza a página, destruindo o conteúdo sob a tarja).
 | --- | --- |
 | Word/PowerPoint/Excel → PDF | LibreOffice (`soffice`) |
 | PDF → Word/Excel/PowerPoint/CSV | Python (`pdf2docx`, `python-pptx`, `openpyxl`, PyMuPDF) — alta fidelidade; aceita senha de abertura via `qpdf --decrypt` |
+| PDF → Markdown / JSON | `pdftotext` + `pdfinfo` — texto por página (determinístico, sem IA) |
 | Combinar arquivos mistos → PDF / Word | LibreOffice + `pdfunite` (+ conversão de volta p/ Word) |
 | Comprimir (texto preservado) | Ghostscript |
 | Proteger / Desbloquear (senha) | qpdf |
@@ -28,10 +29,25 @@ Ocultar/redação (rasteriza a página, destruindo o conteúdo sob a tarja).
 | PDF → PDF/A | Ghostscript |
 | Reparar PDF | qpdf / Ghostscript |
 | HTML → PDF | Chromium (Playwright) |
-| Resumir · Traduzir · PDF → Markdown | API da Anthropic (`claude-opus-5`) + `pdftotext` |
+| Resumir · Traduzir | API da Anthropic (`claude-opus-5`) + `pdftotext` |
 
 As ferramentas de IA exigem `ANTHROPIC_API_KEY`; sem ela, retornam um aviso claro e as
 demais continuam funcionando.
+
+### Recursos gerais
+
+- **Conversão em lote:** vários arquivos numa conversão → download único `.zip`
+  (empacotado no navegador, sem servidor — `src/lib/zip.ts`).
+- **Aviso de PDF escaneado:** conversões detectam PDF sem texto (`pdftotext`) e
+  devolvem o header `X-Broto-Aviso` sugerindo OCR antes.
+- **Meu histórico** (`/meus-arquivos`): registro por usuário do uso das ferramentas
+  (sem guardar arquivos).
+- **Modo escuro** (classe `dark` + preferência salva) e **atalhos de teclado** (`?`).
+- **PWA instalável:** `app/manifest.ts`, ícones em `public/` e `public/sw.js`
+  (cache só de assets estáticos; HTML e `/api` sempre pela rede).
+- **Limites configuráveis** pelo admin (aba *Limites*): tamanho de upload, timeout de
+  conversão e tamanho do lote — `src/lib/server/limits.ts`.
+- **Métricas de uso** no admin (aba *Métricas*): agregação do log de atividade.
 
 ### PDFs protegidos por senha
 

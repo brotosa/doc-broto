@@ -7,6 +7,12 @@
   --ink: #282313;
 }
 
+html.dark {
+  --bg: #0b0d10;
+  --ink: #e9eaed;
+  color-scheme: dark;
+}
+
 html,
 body {
   padding: 0;
@@ -19,3 +25,35 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/*
+ * Modo escuro global. Em vez de anotar `dark:` em ~40 páginas, remapeamos as
+ * utilidades neutras (branco/cinza) mais usadas sob `html.dark`. A especificidade
+ * de `html.dark .classe` supera a utilidade original, então prevalece. Não
+ * mexemos em cores de marca (bg-brand, text-white etc.).
+ */
+html.dark .bg-white { background-color: #15181e !important; }
+html.dark .bg-gray-50 { background-color: #12151a !important; }
+html.dark .bg-gray-100 { background-color: #1b1f26 !important; }
+html.dark .bg-gray-200 { background-color: #232833 !important; }
+
+html.dark .text-gray-900 { color: #f3f4f6 !important; }
+html.dark .text-gray-800 { color: #e5e7eb !important; }
+html.dark .text-gray-700 { color: #d1d5db !important; }
+html.dark .text-gray-600 { color: #b6bcc6 !important; }
+html.dark .text-gray-500 { color: #9aa1ac !important; }
+html.dark .text-gray-400 { color: #7c828d !important; }
+
+html.dark .border-gray-100 { border-color: #232833 !important; }
+html.dark .border-gray-200 { border-color: #2a3039 !important; }
+html.dark .border-gray-300 { border-color: #333a45 !important; }
+
+/* Inputs e áreas de código herdam o fundo escuro. */
+html.dark input,
+html.dark textarea,
+html.dark select,
+html.dark pre { background-color: #15181e; color: #e9eaed; }
+
+/* Cabeçalho translúcido: escurece o branco/85. */
+html.dark .bg-white\/85 { background-color: rgba(15, 17, 21, 0.85) !important; }
+html.dark .bg-white\/90 { background-color: rgba(15, 17, 21, 0.9) !important; }

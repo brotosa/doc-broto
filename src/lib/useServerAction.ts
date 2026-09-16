@@ -15,11 +15,14 @@ export function useServerAction() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  // Aviso não-bloqueante devolvido pelo servidor (ex.: "PDF parece escaneado").
+  const [notice, setNotice] = useState<string | null>(null);
 
   const submit = async (url: string, init: RequestInit, opts: Options) => {
     setBusy(true);
     setError(null);
     setResult(null);
+    setNotice(null);
     try {
       const res = await fetch(url, { method: "POST", ...init });
       if (!res.ok) {
@@ -27,6 +30,8 @@ export function useServerAction() {
         setError(data.error || `Erro ${res.status} ao processar.`);
         return;
       }
+      const aviso = res.headers.get("X-Broto-Aviso");
+      if (aviso) setNotice(decodeURIComponent(aviso));
       if (opts.kind === "download") {
         const blob = await res.blob();
         const cd = res.headers.get("Content-Disposition") || "";
@@ -45,5 +50,5 @@ export function useServerAction() {
     }
   };
 
-  return { busy, error, result, submit, setError };
+  return { busy, error, result, notice, submit, setError, setNotice };
 }

@@ -1,5 +1,6 @@
 import { TOOLS, CATEGORY_LABELS, type ToolCategory } from "@/lib/tools";
 import { HELP_STEPS } from "@/lib/help";
+import { HelpShot as Shot } from "@/components/HelpShot";
 
 export const metadata = { title: "Ajuda — Broto PDF" };
 
@@ -18,18 +19,6 @@ function Steps({ slug }: { slug: string }) {
         </li>
       ))}
     </ol>
-  );
-}
-
-/** Screenshot ilustrativo (telas reais do app, em /public/ajuda). */
-function Shot({ name, alt }: { name: string; alt: string }) {
-  return (
-    <img
-      src={`/ajuda/${name}.png`}
-      alt={alt}
-      loading="lazy"
-      className="mt-4 w-full rounded-xl border border-gray-200 shadow-sm"
-    />
   );
 }
 
@@ -71,6 +60,7 @@ export default function AjudaPage() {
         <a href="#comecar" className="rounded-lg bg-gray-100 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-200">Primeiros passos</a>
         <a href="#fluxo" className="rounded-lg bg-gray-100 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-200">Como usar</a>
         <a href="#pdf-senha" className="rounded-lg bg-gray-100 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-200">PDFs com senha</a>
+        <a href="#novidades" className="rounded-lg bg-gray-100 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-200">Novidades</a>
         {CAT_ORDER.map((c) => (
           <a key={c} href={`#cat-${c}`} className="rounded-lg bg-gray-100 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-200">
             {CATEGORY_LABELS[c]}
@@ -161,6 +151,54 @@ export default function AjudaPage() {
         <Shot name="pdf-senha" alt="Campo “PDF protegido por senha?” em uma conversão" />
       </section>
 
+      {/* Novidades / recursos gerais */}
+      <section id="novidades" className="mt-12 scroll-mt-24">
+        <h2 className="text-2xl font-bold text-gray-900">Novidades e recursos gerais</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <h3 className="text-base font-bold text-gray-900">📦 Conversão em lote</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Nas conversões (Word, Excel, PowerPoint, CSV, Markdown, JSON, PDF/A, tons de cinza), selecione
+              <b> vários arquivos de uma vez</b>. Cada um é processado e você recebe um <b>.zip</b> com todos.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <h3 className="text-base font-bold text-gray-900">🕓 Meu histórico</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              No topo, <b>Meu histórico</b> mostra as últimas ferramentas que você usou, para reabrir rápido.
+              Por privacidade, <b>os arquivos não são guardados</b> — só o registro.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <h3 className="text-base font-bold text-gray-900">🌙 Modo escuro</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Use o botão de <b>lua/sol</b> no topo para alternar entre claro e escuro. Sua preferência fica salva.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <h3 className="text-base font-bold text-gray-900">⌨️ Atalhos de teclado</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Pressione <kbd className="rounded border border-gray-300 bg-gray-100 px-1.5 text-xs">?</kbd> para ver os
+              atalhos: <b>/</b> foca a busca, <b>g h</b> vai ao início, <b>g a</b> à Ajuda, <b>d</b> alterna o tema.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <h3 className="text-base font-bold text-gray-900">📲 Instalar como app (PWA)</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              No navegador, use <b>Instalar aplicativo</b> para abrir o Broto PDF direto da área de trabalho ou do
+              celular, como um app.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <h3 className="text-base font-bold text-gray-900">⚠️ Aviso de PDF escaneado</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Ao converter um PDF que é <b>imagem</b> (escaneado), o sistema avisa que o texto pode não vir
+              editável e sugere usar o <b>OCR</b> antes.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Ferramentas por categoria */}
       {CAT_ORDER.map((cat) => {
         const tools = TOOLS.filter((t) => t.category === cat);
@@ -223,6 +261,22 @@ export default function AjudaPage() {
               <b> Política de Privacidade</b>.
             </p>
             <Shot name="admin-juridico" alt="Aba Jurídico" />
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+            <h3 className="text-lg font-bold text-gray-900">Limites</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Defina o <b>tamanho máximo por arquivo</b> (MB), o <b>tempo máximo de conversão</b> (segundos) e o
+              <b> máximo de arquivos por lote</b>. Valem para todas as ferramentas.
+            </p>
+            <Shot name="admin-limites" alt="Aba Limites" />
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+            <h3 className="text-lg font-bold text-gray-900">Métricas</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Painel de uso: total de conversões, uso dos <b>últimos 7 dias</b>, <b>usuários ativos</b>, gráfico de
+              uso por dia e ranking das <b>ferramentas e usuários mais ativos</b>.
+            </p>
+            <Shot name="admin-metricas" alt="Aba Métricas" />
           </div>
         </div>
       </section>

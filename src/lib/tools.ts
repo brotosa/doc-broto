@@ -387,6 +387,28 @@ export const TOOLS: Tool[] = [
     isNew: true,
   },
   {
+    slug: "pdf-para-markdown",
+    title: "PDF para Markdown",
+    description:
+      "Converta o texto do PDF em Markdown (.md), com um cabeçalho por página — ótimo para documentação e wikis.",
+    category: "converter",
+    color: "bg-brand text-white",
+    glyph: "M↓",
+    ready: true,
+    isNew: true,
+  },
+  {
+    slug: "pdf-para-json",
+    title: "PDF para JSON",
+    description:
+      "Extraia o conteúdo do PDF em JSON estruturado (metadados + texto por página), pronto para integrações.",
+    category: "converter",
+    color: "bg-brand-green text-white",
+    glyph: "{ }",
+    ready: true,
+    isNew: true,
+  },
+  {
     slug: "tons-de-cinza",
     title: "PDF em tons de cinza",
     description:

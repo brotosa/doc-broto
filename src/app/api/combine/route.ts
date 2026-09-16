@@ -1,4 +1,5 @@
-import { fileToBuffer, fileResponse, errorResponse, MAX_UPLOAD_BYTES } from "@/lib/server/http";
+import { fileToBuffer, fileResponse, errorResponse } from "@/lib/server/http";
+import { maxUploadBytes } from "@/lib/server/limits";
 import { combineToPdf, combineToWord, COMBINE_ACCEPT_RE, type InputFile } from "@/lib/server/combine";
 import { ProcessingError } from "@/lib/server/exec";
 
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const raw = form.getAll("files").filter((f): f is File => f instanceof File);
     if (raw.length < 2) throw new ProcessingError("Envie ao menos dois arquivos para combinar.");
+    const maxBytes = await maxUploadBytes();
     let total = 0;
     const files: InputFile[] = [];
     for (const f of raw) {
@@ -20,7 +22,7 @@ export async function POST(request: Request) {
         throw new ProcessingError(`Formato não suportado: ${f.name}. Use PDF, Word, Excel, PowerPoint ou texto.`);
       }
       total += f.size;
-      if (total > MAX_UPLOAD_BYTES) throw new ProcessingError("Os arquivos somam mais de 100 MB.");
+      if (total > maxBytes) throw new ProcessingError(`Os arquivos somam mais de ${Math.round(maxBytes / (1024 * 1024))} MB.`);
       files.push({ name: f.name, buf: await fileToBuffer(f) });
     }
     if (target === "docx") {

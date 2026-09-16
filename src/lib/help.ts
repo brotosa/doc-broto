@@ -27,6 +27,8 @@ export const HELP_STEPS: Record<string, string[]> = {
   "pdf-para-html": ["Envie o PDF.", "Clique em Converter para HTML — sai um arquivo .html fiel ao original, com texto selecionável."],
   "pdf-para-pdfa": ["Envie o PDF.", "Clique em Converter para PDF/A (arquivamento de longo prazo)."],
   "pdf-para-csv": ["Envie um PDF com tabela.", "Se o PDF tiver senha de abertura, informe-a no campo “PDF protegido por senha?”.", "Clique em Converter para CSV."],
+  "pdf-para-markdown": ["Envie um ou mais PDFs.", "Clique em Converter para Markdown (.md) — sai um cabeçalho por página.", "Vários arquivos? Você recebe um .zip com todos."],
+  "pdf-para-json": ["Envie um ou mais PDFs.", "Clique em Converter para JSON — sai metadados + texto por página.", "Vários arquivos? Você recebe um .zip com todos."],
   "extrair-texto": ["Envie o PDF.", "Clique em Extrair texto (.txt)."],
   "extrair-imagens": ["Envie o PDF.", "Clique em Extrair imagens — sai um .zip."],
   "pdf-para-png": ["Envie o PDF.", "Escolha a qualidade.", "Clique em Converter para PNG."],

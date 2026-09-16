@@ -1,4 +1,4 @@
-import { fileToBuffer, fileResponse, errorResponse, MAX_UPLOAD_BYTES } from "@/lib/server/http";
+import { fileToBuffer, fileResponse, errorResponse, assertUploadSize } from "@/lib/server/http";
 import { unlockPdf } from "@/lib/server/pdf-ops";
 import { ProcessingError } from "@/lib/server/exec";
 
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const file = form.get("file");
     const password = String(form.get("password") || "");
     if (!(file instanceof File)) throw new ProcessingError("Arquivo ausente.");
-    if (file.size > MAX_UPLOAD_BYTES) throw new ProcessingError("Arquivo excede 100 MB.");
+    await assertUploadSize(file.size);
     const out = await unlockPdf(await fileToBuffer(file), password);
     const base = file.name.replace(/\.pdf$/i, "");
     return fileResponse(out, `${base}-desbloqueado.pdf`);

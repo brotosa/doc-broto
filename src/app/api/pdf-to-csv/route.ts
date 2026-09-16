@@ -1,4 +1,4 @@
-import { fileToBuffer, fileResponse, errorResponse, MAX_UPLOAD_BYTES } from "@/lib/server/http";
+import { fileToBuffer, fileResponse, errorResponse, assertUploadSize } from "@/lib/server/http";
 import { pdfToOfficePy } from "@/lib/server/pdf-office";
 import { ProcessingError } from "@/lib/server/exec";
 
@@ -10,12 +10,14 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const file = form.get("file");
     if (!(file instanceof File) || !/\.pdf$/i.test(file.name)) throw new ProcessingError("Envie um arquivo PDF.");
-    if (file.size === 0) throw new ProcessingError("Arquivo vazio.");
-    if (file.size > MAX_UPLOAD_BYTES) throw new ProcessingError("Arquivo excede o limite de 100 MB.");
+    await assertUploadSize(file.size);
     const password = String(form.get("password") ?? "");
-    const out = await pdfToOfficePy(await fileToBuffer(file), "csv", password);
+    const { out, scanned } = await pdfToOfficePy(await fileToBuffer(file), "csv", password);
     const base = file.name.replace(/\.pdf$/i, "");
-    return fileResponse(out, `${base}.csv`, "text/csv; charset=utf-8");
+    const aviso = scanned
+      ? "Este PDF parece ser escaneado (imagem). A tabela pode não ser detectada — use “OCR de PDF” antes para torná-lo pesquisável."
+      : undefined;
+    return fileResponse(out, `${base}.csv`, "text/csv; charset=utf-8", aviso);
   } catch (err) {
     return errorResponse(err);
   }

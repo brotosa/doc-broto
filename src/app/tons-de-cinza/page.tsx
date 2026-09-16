@@ -9,7 +9,9 @@ export default function Page() {
   return (
     <BackendTool
       tool={tool}
-      hint="Selecione um PDF colorido"
+      hint="Selecione um ou mais PDFs coloridos"
+      multiple
+      batch
       buttonLabel="Converter para tons de cinza"
       responseKind="download"
       build={(files) => {
