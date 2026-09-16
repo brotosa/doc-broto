@@ -12,6 +12,11 @@ const PYTHON = process.env.PYTHON_BIN || "python3";
 
 const SCRIPT = `import sys
 mode, src, dst = sys.argv[1], sys.argv[2], sys.argv[3]
+import pymupdf as _pm
+_chk = _pm.open(src)
+if _chk.needs_pass:
+    raise SystemExit("PDF_PROTEGIDO")
+_chk.close()
 if mode == "docx":
     from pdf2docx import Converter
     c = Converter(src); c.convert(dst); c.close()
@@ -310,11 +315,18 @@ export async function pdfToOfficePy(input: Buffer, target: "docx" | "pptx" | "xl
       await run(PYTHON, [scriptPath, target, inPath, outPath], { timeoutMs: 300_000 });
       return await readFile(outPath);
     } catch (e) {
+      const err = e as ProcessingError;
+      const blob = `${err.message || ""} ${err.detail || ""}`;
+      if (blob.includes("PDF_PROTEGIDO")) {
+        throw new ProcessingError(
+          "Este PDF está protegido por senha. Desbloqueie primeiro com a ferramenta “Desbloquear PDF” e tente novamente."
+        );
+      }
       // Sempre devolve um ProcessingError (mensagem clara, 400) em vez de
       // deixar escapar uma exceção crua (que viraria "Erro inesperado", 500).
       throw new ProcessingError(
         "Não foi possível converter este PDF. Ele pode estar protegido por senha, corrompido ou em um formato não suportado.",
-        (e as Error).message
+        blob
       );
     }
   });
