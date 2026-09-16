@@ -5,6 +5,40 @@ import { run, withWorkspace, ProcessingError } from "./exec";
 
 /** Locate the LibreOffice binary. */
 const SOFFICE = process.env.SOFFICE_BIN || "soffice";
+const PYTHON = process.env.PYTHON_BIN || "python3";
+
+// Descriptografa um OOXML protegido por SENHA DE ABERTURA usando msoffcrypto-tool.
+// Só é chamado quando o arquivo é criptografado (OLE). Senha errada → erro claro.
+const DECRYPT_SCRIPT = `import sys, msoffcrypto
+inp, outp, pw = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(inp, "rb") as f:
+    off = msoffcrypto.OfficeFile(f)
+    off.load_key(password=pw)
+    with open(outp, "wb") as o:
+        off.decrypt(o)
+`;
+
+async function decryptOoxml(dir: string, inPath: string, password: string, kind: string): Promise<string> {
+  const scriptPath = join(dir, "decrypt.py");
+  const outPath = join(dir, "decrypted" + parse(inPath).ext);
+  await writeFile(scriptPath, DECRYPT_SCRIPT);
+  try {
+    await run(PYTHON, [scriptPath, inPath, outPath, password], { timeoutMs: 60_000 });
+  } catch (e) {
+    const detail = (e as ProcessingError).detail || (e as Error).message;
+    // msoffcrypto lança InvalidKeyError / "Failed to verify password" quando a senha é errada.
+    if (/password|InvalidKey|verify/i.test(detail)) {
+      throw new ProcessingError(
+        `Senha incorreta para este arquivo ${kind}. Verifique a senha e tente novamente.`
+      );
+    }
+    throw new ProcessingError(
+      `Não foi possível abrir este arquivo ${kind} protegido. Verifique a senha e tente novamente.`,
+      detail
+    );
+  }
+  return outPath;
+}
 
 /**
  * Convert an office document (docx/xlsx/pptx/odt/...) to PDF via LibreOffice.
@@ -28,18 +62,28 @@ function officeKind(filename: string): string {
   return "Word";
 }
 
-export async function officeToPdf(input: Buffer, filename: string): Promise<Buffer> {
+export async function officeToPdf(input: Buffer, filename: string, password = ""): Promise<Buffer> {
   return withWorkspace(async (dir) => {
     const kind = officeKind(filename);
-    if (looksEncryptedOoxml(input, filename)) {
-      throw new ProcessingError(
-        `Este arquivo ${kind} parece estar protegido por senha e por isso não pode ser convertido. ` +
-          `Abra-o no ${kind}, remova a senha (Arquivo → Informações → Proteger → remover senha) e envie novamente.`
-      );
-    }
     const base = parse(filename).name || "documento";
-    const inPath = join(dir, `${base}${parse(filename).ext || ".docx"}`);
+    let inPath = join(dir, `${base}${parse(filename).ext || ".docx"}`);
     await writeFile(inPath, input);
+
+    // Só a SENHA DE ABERTURA (arquivo criptografado, OLE) exige tratamento: o
+    // arquivo precisa ser descriptografado antes do LibreOffice. Restrições
+    // internas (imprimir/editar/preencher) NÃO impedem a conversão — o
+    // LibreOffice abre o arquivo (que é um ZIP normal) e gera o PDF direto.
+    if (looksEncryptedOoxml(input, filename)) {
+      if (!password) {
+        throw new ProcessingError(
+          `Este arquivo ${kind} exige uma senha de abertura. Informe a senha no campo ` +
+            `“Arquivo protegido por senha?” acima. Se você não tem a senha, não é possível abri-lo — ` +
+            `solicite o arquivo original a quem o enviou.`
+        );
+      }
+      inPath = await decryptOoxml(dir, inPath, password, kind);
+    }
+
     let out: { stdout: string; stderr: string };
     try {
       out = await run(
