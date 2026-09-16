@@ -239,10 +239,13 @@ export async function unlockPdf(input: Buffer, password: string): Promise<Buffer
         outPath,
       ]);
     } catch (e) {
-      throw new ProcessingError(
-        "Não foi possível desbloquear. A senha pode estar incorreta.",
-        (e as Error).message
-      );
+      // Sem senha e mesmo assim falhou = o PDF tem senha de ABERTURA
+      // (criptografia). Com senha informada = a senha está errada. Em ambos
+      // os casos, sem a senha correta não há como recuperar o conteúdo.
+      const msg = password
+        ? "A senha informada está incorreta. Sem a senha correta, o conteúdo do PDF é criptografado e não pode ser recuperado — solicite o arquivo original a quem o enviou."
+        : "Este PDF exige uma senha de abertura para ser lido. Informe a senha no campo acima. Se você não tem a senha, não é possível recuperá-lo — solicite o arquivo original a quem o enviou.";
+      throw new ProcessingError(msg, (e as Error).message);
     }
     return readFile(outPath);
   });
