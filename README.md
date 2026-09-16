@@ -58,6 +58,12 @@ a senha (campo opcional) e rodam `qpdf --decrypt` antes de processar. **Sem a se
 não há como recuperar** um PDF com senha de abertura — é a criptografia funcionando; as
 mensagens de erro orientam o usuário a solicitar o arquivo original.
 
+**Office (Word/Excel/PowerPoint → PDF):** arquivos OOXML com **senha de abertura** são
+criptografados (viram *OLE compound file*, magic `D0CF11E0`) — detectamos isso e, se o
+usuário informar a senha, descriptografamos com `msoffcrypto-tool` antes do LibreOffice.
+Arquivos que **abrem normalmente** mas têm só **restrições internas** (imprimir/editar/
+preencher) convertem sem senha — o LibreOffice lê o arquivo (ZIP normal) e gera o PDF direto.
+
 ## Rodar localmente
 
 ```bash

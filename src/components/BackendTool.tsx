@@ -23,6 +23,7 @@ export function BackendTool({
   controls,
   minFiles = 1,
   withPassword = false,
+  passwordLabel = "PDF protegido por senha?",
   batch = false,
 }: {
   tool: Tool;
@@ -36,8 +37,10 @@ export function BackendTool({
   /** Extra control inputs rendered below the dropzone. */
   controls?: ReactNode;
   minFiles?: number;
-  /** Mostra um campo opcional de senha (para PDFs protegidos). */
+  /** Mostra um campo opcional de senha (para arquivos protegidos). */
   withPassword?: boolean;
+  /** Rótulo do campo de senha (ex.: "Arquivo protegido por senha?"). */
+  passwordLabel?: string;
   /** Processa cada arquivo separadamente e entrega um .zip (1 entrada → 1 saída). */
   batch?: boolean;
 }) {
@@ -134,18 +137,18 @@ export function BackendTool({
         <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-gray-700">
-              PDF protegido por senha? <span className="font-normal text-gray-400">(opcional)</span>
+              {passwordLabel} <span className="font-normal text-gray-400">(opcional)</span>
             </span>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="off"
-              placeholder="Senha do PDF (deixe em branco se não tiver)"
+              placeholder="Senha (deixe em branco se não tiver)"
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-brand"
             />
           </label>
-          <p className="mt-1 text-xs text-gray-400">Se o PDF tiver senha, informe-a aqui para desbloquear e converter num passo só.</p>
+          <p className="mt-1 text-xs text-gray-400">Se o arquivo tiver senha de abertura, informe-a aqui para desbloquear e converter num passo só.</p>
         </div>
       )}
 

@@ -145,7 +145,13 @@ export default function AjudaPage() {
             </p>
           </div>
         </div>
-        <p className="mt-4 text-xs text-gray-500">
+        <p className="mt-4 text-sm text-gray-600">
+          <b>Vale também para Word, Excel e PowerPoint:</b> se o arquivo pede senha para <b>abrir</b>, informe-a no
+          campo “Arquivo protegido por senha?”. Já se o arquivo <b>abre normalmente</b> mas tem apenas
+          <b> restrições internas</b> (bloquear imprimir, editar ou preencher campos), a conversão <b>funciona sem
+          senha</b> — o PDF gerado sai sem essas travas.
+        </p>
+        <p className="mt-2 text-xs text-gray-500">
           A senha informada é usada apenas para abrir o arquivo naquela conversão e não é armazenada.
         </p>
         <Shot name="pdf-senha" alt="Campo “PDF protegido por senha?” em uma conversão" />

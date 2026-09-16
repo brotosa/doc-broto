@@ -51,8 +51,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Motores Python:
 #  - pdf2docx/python-pptx/openpyxl: PDF -> Word/PowerPoint/Excel
 #  - pyHanko: assinatura digital ICP-Brasil A1 (PAdES) em PDF
+#  - msoffcrypto-tool: abrir Office (xlsx/docx/pptx) com senha de abertura
 RUN pip3 install --no-cache-dir --break-system-packages \
       pdf2docx==0.5.13 python-pptx==1.0.2 openpyxl==3.1.5 pyHanko==0.36.2 \
+      msoffcrypto-tool==5.4.2 \
     && rm -rf /root/.cache/pip
 
 # Usuário não-root

@@ -13,11 +13,14 @@ export default function Page() {
       hint="Selecione um ou mais arquivos Word (.doc, .docx)"
       multiple
       batch
+      withPassword
+      passwordLabel="Arquivo protegido por senha?"
       buttonLabel="Converter para PDF"
       responseKind="download"
-      build={(files) => {
+      build={(files, password) => {
         const fd = new FormData();
         fd.append("file", files[0]);
+        if (password) fd.append("password", password);
         return {
           url: "/api/office-to-pdf",
           init: { body: fd },
