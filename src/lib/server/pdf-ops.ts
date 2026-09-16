@@ -10,27 +10,64 @@ const SOFFICE = process.env.SOFFICE_BIN || "soffice";
  * Convert an office document (docx/xlsx/pptx/odt/...) to PDF via LibreOffice.
  * A per-call user profile lets multiple conversions run concurrently.
  */
+// Formatos OOXML (2007+) são arquivos ZIP quando NÃO protegidos. Quando têm
+// senha, viram "OLE compound file" (magic D0 CF 11 E0 A1 B1 1A E1). Detectar
+// isso dá uma mensagem clara em vez do genérico "não gerou arquivo de saída".
+const OLE_MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+function looksEncryptedOoxml(buf: Buffer, filename: string): boolean {
+  const ext = parse(filename).ext.toLowerCase();
+  if (![".xlsx", ".docx", ".pptx"].includes(ext)) return false;
+  return buf.subarray(0, 8).equals(OLE_MAGIC);
+}
+
+// Nomes amigáveis por tipo, para mensagens de erro.
+function officeKind(filename: string): string {
+  const ext = parse(filename).ext.toLowerCase();
+  if ([".xls", ".xlsx", ".ods", ".csv"].includes(ext)) return "Excel";
+  if ([".ppt", ".pptx", ".odp"].includes(ext)) return "PowerPoint";
+  return "Word";
+}
+
 export async function officeToPdf(input: Buffer, filename: string): Promise<Buffer> {
   return withWorkspace(async (dir) => {
+    const kind = officeKind(filename);
+    if (looksEncryptedOoxml(input, filename)) {
+      throw new ProcessingError(
+        `Este arquivo ${kind} parece estar protegido por senha e por isso não pode ser convertido. ` +
+          `Abra-o no ${kind}, remova a senha (Arquivo → Informações → Proteger → remover senha) e envie novamente.`
+      );
+    }
     const base = parse(filename).name || "documento";
     const inPath = join(dir, `${base}${parse(filename).ext || ".docx"}`);
     await writeFile(inPath, input);
-    await run(
-      SOFFICE,
-      [
-        "--headless",
-        "--norestore",
-        "--nolockcheck",
-        `-env:UserInstallation=file://${join(dir, "lo-profile")}`,
-        "--convert-to",
-        "pdf",
-        "--outdir",
-        dir,
-        inPath,
-      ],
-      { timeoutMs: 180_000 }
-    );
-    return readSingleOutput(dir, ".pdf");
+    let out: { stdout: string; stderr: string };
+    try {
+      out = await run(
+        SOFFICE,
+        [
+          "--headless",
+          "--norestore",
+          "--nolockcheck",
+          `-env:UserInstallation=file://${join(dir, "lo-profile")}`,
+          "--convert-to",
+          "pdf",
+          "--outdir",
+          dir,
+          inPath,
+        ],
+        { timeoutMs: 180_000 }
+      );
+    } catch (e) {
+      const detail = (e as ProcessingError).detail || (e as Error).message;
+      throw new ProcessingError(
+        `Não foi possível converter este arquivo ${kind}. Ele pode estar protegido por senha, ` +
+          `corrompido ou num formato não suportado.`,
+        detail
+      );
+    }
+    // O LibreOffice às vezes sai com código 0 mesmo sem gerar o PDF (ex.: arquivo
+    // ilegível). Se não houver saída, usamos a mensagem do soffice como detalhe.
+    return readSingleOutput(dir, ".pdf", `${out.stderr}\n${out.stdout}`.trim(), kind);
   });
 }
 
@@ -381,11 +418,16 @@ export async function repairPdf(input: Buffer): Promise<Buffer> {
   });
 }
 
-async function readSingleOutput(dir: string, ext: string): Promise<Buffer> {
+async function readSingleOutput(dir: string, ext: string, detail?: string, kind?: string): Promise<Buffer> {
   const files = await readdir(dir);
   const match = files.find((f) => f.toLowerCase().endsWith(ext.toLowerCase()));
   if (!match) {
-    throw new ProcessingError("A conversão não gerou um arquivo de saída.");
+    const alvo = kind ? `este arquivo ${kind}` : "este arquivo";
+    throw new ProcessingError(
+      `Não foi possível converter ${alvo}. Ele pode estar protegido por senha, corrompido ou num ` +
+        `formato não suportado. Se tiver senha, remova-a no programa de origem e tente novamente.`,
+      detail
+    );
   }
   return readFile(join(dir, match));
 }
