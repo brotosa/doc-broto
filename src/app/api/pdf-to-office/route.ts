@@ -1,4 +1,4 @@
-import { readUpload, fileToBuffer, fileResponse, errorResponse } from "@/lib/server/http";
+import { fileToBuffer, fileResponse, errorResponse, MAX_UPLOAD_BYTES } from "@/lib/server/http";
 import { pdfToOfficePy } from "@/lib/server/pdf-office";
 import { ProcessingError } from "@/lib/server/exec";
 
@@ -19,9 +19,14 @@ export async function POST(request: Request) {
       | "pptx"
       | null;
     if (!target || !TYPES[target]) throw new ProcessingError("Formato de destino inválido.");
-    const file = await readUpload(request, "file", /\.pdf$/i);
+    const form = await request.formData();
+    const file = form.get("file");
+    if (!(file instanceof File) || !/\.pdf$/i.test(file.name)) throw new ProcessingError("Envie um arquivo PDF.");
+    if (file.size === 0) throw new ProcessingError("Arquivo vazio.");
+    if (file.size > MAX_UPLOAD_BYTES) throw new ProcessingError("Arquivo excede o limite de 100 MB.");
+    const password = String(form.get("password") ?? "");
     const buf = await fileToBuffer(file);
-    const out = await pdfToOfficePy(buf, target);
+    const out = await pdfToOfficePy(buf, target, password);
     const base = file.name.replace(/\.pdf$/i, "");
     return fileResponse(out, `${base}.${target}`, TYPES[target]);
   } catch (err) {

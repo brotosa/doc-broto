@@ -12,9 +12,11 @@ export default function Page() {
       hint="Selecione um PDF com tabela"
       buttonLabel="Converter para CSV"
       responseKind="download"
-      build={(files) => {
+      withPassword
+      build={(files, password) => {
         const fd = new FormData();
         fd.append("file", files[0]);
+        if (password) fd.append("password", password);
         return {
           url: "/api/pdf-to-csv",
           init: { body: fd },
