@@ -19,8 +19,39 @@ if _chk.needs_pass:
     raise SystemExit("PDF_PROTEGIDO")
 _chk.close()
 if mode == "docx":
-    from pdf2docx import Converter
-    c = Converter(src); c.convert(dst); c.close()
+    # Motor editável: pdf2docx (texto real, imagens e tabelas). Se falhar em
+    # algum PDF (layout atípico/corrompido), NUNCA quebra: cai para um docx
+    # de páginas em imagem (fiel, porém não editável), uma página por seção.
+    def _image_docx():
+        import os, pymupdf
+        from docx import Document
+        from docx.shared import Emu
+        from docx.enum.section import WD_SECTION
+        EMU = 914400
+        def E(pt): return Emu(int(round(pt / 72 * EMU)))
+        d2 = pymupdf.open(src)
+        out = Document()
+        mdir = dst + "_m"; os.makedirs(mdir, exist_ok=True)
+        for i, page in enumerate(d2):
+            sec = out.sections[0] if i == 0 else out.add_section(WD_SECTION.NEW_PAGE)
+            sec.page_width = E(page.rect.width); sec.page_height = E(page.rect.height)
+            sec.left_margin = sec.right_margin = sec.top_margin = sec.bottom_margin = Emu(0)
+            para = out.add_paragraph()
+            para.paragraph_format.space_before = Emu(0); para.paragraph_format.space_after = Emu(0)
+            pix = page.get_pixmap(dpi=150)
+            fp = os.path.join(mdir, f"{i}.jpg")
+            try: pix.save(fp, jpg_quality=88)
+            except TypeError: pix.save(fp)
+            para.add_run().add_picture(fp, width=E(page.rect.width), height=E(page.rect.height))
+        out.save(dst)
+    try:
+        import os
+        from pdf2docx import Converter
+        c = Converter(src); c.convert(dst); c.close()
+        if (not os.path.exists(dst)) or os.path.getsize(dst) < 200:
+            raise RuntimeError("pdf2docx nao gerou saida")
+    except Exception:
+        _image_docx()
 elif mode == "pptx":
     # Híbrido FIEL + EDITÁVEL (abordagem tipo iLovePDF):
     #  1) coleta as linhas de texto (posição, fonte, tamanho, cor);
