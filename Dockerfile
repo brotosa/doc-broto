@@ -56,7 +56,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # com graphics/images (>=1.23.21) para remover só o texto preservando o design.
 RUN pip3 install --no-cache-dir --break-system-packages \
       pymupdf==1.28.2 \
-      pdf2docx==0.5.13 python-pptx==1.0.2 openpyxl==3.1.5 pyHanko==0.36.2 \
+      pdf2docx==0.5.13 python-pptx==1.0.2 python-docx==1.2.0 openpyxl==3.1.5 pyHanko==0.36.2 \
       msoffcrypto-tool==5.4.2 \
     && rm -rf /root/.cache/pip
 
