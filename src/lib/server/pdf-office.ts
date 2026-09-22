@@ -139,6 +139,32 @@ elif mode == "pptx":
                     except Exception: pass
                     prev_x1 = s["bbox"][2]; prev_sz = s["size"]
     prs.save(dst)
+elif mode == "pptximg":
+    # Modo FIEL: cada página vira uma imagem em alta resolução ocupando o slide
+    # inteiro. Fidelidade visual pixel-perfect (fotos, formas, ícones, fontes),
+    # porém o texto não fica editável. Ideal para decks gráficos.
+    import os, pymupdf
+    from pptx import Presentation
+    from pptx.util import Emu
+    EMU = 914400
+    def E(pt): return Emu(int(round(pt / 72 * EMU)))
+    doc = pymupdf.open(src)
+    if doc.page_count == 0:
+        raise SystemExit("PDF vazio")
+    prs = Presentation()
+    r0 = doc[0].rect
+    prs.slide_width = E(r0.width); prs.slide_height = E(r0.height)
+    blank = prs.slide_layouts[6]
+    media = dst + "_m"; os.makedirs(media, exist_ok=True)
+    for pi, page in enumerate(doc):
+        slide = prs.slides.add_slide(blank)
+        # 150 DPI em JPEG: nítido o suficiente e arquivo bem menor que PNG.
+        pix = page.get_pixmap(dpi=150)
+        p = os.path.join(media, f"{pi}.jpg")
+        try: pix.save(p, jpg_quality=85)
+        except TypeError: pix.save(p)
+        slide.shapes.add_picture(p, 0, 0, prs.slide_width, prs.slide_height)
+    prs.save(dst)
 elif mode == "xlsx":
     # Reconstrução fiel: tabelas com bordas viram planilhas; conteúdo
     # posicional (colunas sem borda) é remontado na grade certa pela
@@ -314,8 +340,10 @@ export type PdfToOfficeResult = {
 export async function pdfToOfficePy(
   input: Buffer,
   target: "docx" | "pptx" | "xlsx" | "csv",
-  password = ""
+  password = "",
+  scriptMode?: string
 ): Promise<PdfToOfficeResult> {
+  const mode = scriptMode || target;
   return withWorkspace(async (dir) => {
     const inPath = join(dir, "in.pdf");
     const outPath = join(dir, `out.${target}`);
@@ -353,7 +381,7 @@ export async function pdfToOfficePy(
     }
     try {
       const { timeoutSec } = await getLimits();
-      await run(PYTHON, [scriptPath, target, srcPath, outPath], { timeoutMs: timeoutSec * 1000 });
+      await run(PYTHON, [scriptPath, mode, srcPath, outPath], { timeoutMs: timeoutSec * 1000 });
       return { out: await readFile(outPath), scanned };
     } catch (e) {
       const err = e as ProcessingError;

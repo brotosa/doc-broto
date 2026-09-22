@@ -16,7 +16,7 @@ export const HELP_STEPS: Record<string, string[]> = {
   "reparar-pdf": ["Envie o PDF danificado.", "Clique em Reparar e baixe o arquivo recuperado."],
   "tons-de-cinza": ["Envie o PDF colorido.", "Clique em Converter para tons de cinza."],
   "pdf-para-word": ["Envie o PDF.", "Se o PDF tiver senha de abertura, informe-a no campo “PDF protegido por senha?”.", "Clique em Converter para Word (.docx)."],
-  "pdf-para-powerpoint": ["Envie o PDF.", "Se o PDF tiver senha de abertura, informe-a no campo “PDF protegido por senha?”.", "Clique em Converter para PowerPoint (.pptx)."],
+  "pdf-para-powerpoint": ["Envie um ou mais PDFs.", "Escolha o modo: “Fiel (imagem)” mantém a aparência idêntica; “Editável” reconstrói textos e formas.", "Se o PDF tiver senha de abertura, informe-a no campo de senha.", "Clique em Converter para PowerPoint (vários arquivos saem num .zip)."],
   "pdf-para-excel": ["Envie um PDF com tabela.", "Se o PDF tiver senha de abertura, informe-a no campo “PDF protegido por senha?”.", "Clique em Converter para Excel (.xlsx)."],
   "word-para-pdf": ["Envie um ou mais arquivos Word.", "Se tiver senha de abertura, informe-a no campo “Arquivo protegido por senha?”.", "Clique em Converter para PDF (vários arquivos saem num .zip)."],
   "powerpoint-para-pdf": ["Envie um ou mais arquivos PowerPoint.", "Se tiver senha de abertura, informe-a no campo “Arquivo protegido por senha?”.", "Clique em Converter para PDF (vários arquivos saem num .zip)."],

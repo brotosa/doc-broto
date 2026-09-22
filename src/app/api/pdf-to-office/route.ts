@@ -24,10 +24,15 @@ export async function POST(request: Request) {
     if (!(file instanceof File) || !/\.pdf$/i.test(file.name)) throw new ProcessingError("Envie um arquivo PDF.");
     await assertUploadSize(file.size);
     const password = String(form.get("password") ?? "");
+    // PowerPoint tem dois modos: "imagem" (fiel/pixel-perfect, não editável) e
+    // "editavel" (reconstrói texto/formas). Padrão fiel para decks gráficos.
+    const fidelity = String(form.get("fidelity") ?? "");
+    const scriptMode = target === "pptx" && fidelity !== "editavel" ? "pptximg" : undefined;
     const buf = await fileToBuffer(file);
-    const { out, scanned } = await pdfToOfficePy(buf, target, password);
+    const { out, scanned } = await pdfToOfficePy(buf, target, password, scriptMode);
     const base = file.name.replace(/\.pdf$/i, "");
-    const aviso = scanned
+    // No modo imagem (pptximg) o aviso de "escaneado" não faz sentido.
+    const aviso = scanned && scriptMode !== "pptximg"
       ? "Este PDF parece ser escaneado (imagem). O texto pode não vir editável — use “OCR de PDF” antes para torná-lo pesquisável."
       : undefined;
     return fileResponse(out, `${base}.${target}`, TYPES[target], aviso);
