@@ -24,10 +24,10 @@ export async function POST(request: Request) {
     if (!(file instanceof File) || !/\.pdf$/i.test(file.name)) throw new ProcessingError("Envie um arquivo PDF.");
     await assertUploadSize(file.size);
     const password = String(form.get("password") ?? "");
-    // PowerPoint tem dois modos: "imagem" (fiel/pixel-perfect, não editável) e
-    // "editavel" (reconstrói texto/formas). Padrão fiel para decks gráficos.
+    // PowerPoint: padrão é o híbrido fiel+editável (mode "pptx"). "imagem" força
+    // a página inteira como imagem (fiel, porém sem nada editável).
     const fidelity = String(form.get("fidelity") ?? "");
-    const scriptMode = target === "pptx" && fidelity !== "editavel" ? "pptximg" : undefined;
+    const scriptMode = target === "pptx" && fidelity === "imagem" ? "pptximg" : undefined;
     const buf = await fileToBuffer(file);
     const { out, scanned } = await pdfToOfficePy(buf, target, password, scriptMode);
     const base = file.name.replace(/\.pdf$/i, "");

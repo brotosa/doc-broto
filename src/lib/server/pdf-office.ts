@@ -22,20 +22,22 @@ if mode == "docx":
     from pdf2docx import Converter
     c = Converter(src); c.convert(dst); c.close()
 elif mode == "pptx":
-    # Reconstrução fiel e EDITÁVEL: fundos/barras viram formas, fotos e
-    # logos viram imagens (grupos vetoriais são rasterizados), e o texto
-    # vira caixas de texto editáveis com fonte/cor/posição.
+    # Híbrido FIEL + EDITÁVEL (abordagem tipo iLovePDF):
+    #  1) coleta as linhas de texto (posição, fonte, tamanho, cor);
+    #  2) REMOVE só o texto da página, preservando fotos e vetores intactos
+    #     (redação com IMAGE_NONE + LINE_ART_NONE) -> fundo fiel sem texto;
+    #  3) renderiza esse fundo como imagem ocupando o slide;
+    #  4) sobrepõe o texto como caixas EDITÁVEIS na posição/estilo originais.
+    # Texto que no PDF já é vetor/contorno (títulos display) permanece no fundo
+    # (aparência perfeita, apenas não editável) — sem duplicar/"fantasma".
     import os, pymupdf
     from pptx import Presentation
     from pptx.util import Emu, Pt
     from pptx.dml.color import RGBColor
-    from pptx.enum.shapes import MSO_SHAPE
     from pptx.enum.text import MSO_ANCHOR
     EMU = 914400
     def E(pt): return Emu(int(round(pt / 72 * EMU)))
-    def rgb(t): return RGBColor(max(0, min(255, int(t[0] * 255))), max(0, min(255, int(t[1] * 255))), max(0, min(255, int(t[2] * 255))))
     def rgbi(v): return RGBColor((v >> 16) & 255, (v >> 8) & 255, v & 255)
-    def uni(a, b): return pymupdf.Rect(min(a.x0, b.x0), min(a.y0, b.y0), max(a.x1, b.x1), max(a.y1, b.y1))
     doc = pymupdf.open(src)
     if doc.page_count == 0:
         raise SystemExit("PDF vazio")
@@ -45,99 +47,50 @@ elif mode == "pptx":
     blank = prs.slide_layouts[6]
     media = dst + "_m"; os.makedirs(media, exist_ok=True)
     for pi, page in enumerate(doc):
+        lines = []
+        for b in page.get_text("dict")["blocks"]:
+            if b.get("type") != 0: continue
+            for l in b["lines"]:
+                spans = [s for s in l["spans"] if s["text"].strip()]
+                if spans: lines.append(spans)
+        for spans in lines:
+            for s in spans:
+                page.add_redact_annot(pymupdf.Rect(s["bbox"]))
+        try:
+            page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE, graphics=pymupdf.PDF_REDACT_LINE_ART_NONE)
+        except Exception:
+            try: page.apply_redactions()
+            except Exception: pass
         slide = prs.slides.add_slide(blank)
-        W, H = page.rect.width, page.rect.height; area = W * H
-        bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height)
-        bg.fill.solid(); bg.fill.fore_color.rgb = RGBColor(255, 255, 255); bg.line.fill.background(); bg.shadow.inherit = False
-        textrects = []
-        for _b in page.get_text("dict")["blocks"]:
-            if _b.get("type") != 0: continue
-            for _l in _b["lines"]:
-                for _s in _l["spans"]:
-                    if _s["text"].strip(): textrects.append(pymupdf.Rect(_s["bbox"]))
-        small = []
-        for d in page.get_drawings():
-            rc = d.get("rect")
-            if rc is None: continue
-            f = d.get("fill"); stroke = d.get("color")
-            w_, h_ = rc.width, rc.height
-            longside = max(w_, h_); shortside = min(w_, h_)
-            # Linhas/bordas/divisores (tabelas, sublinhados): um lado fino
-            # (inclui 0) e o outro longo -> retângulo fino nítido e editável.
-            # Limiares conservadores para não roubar traços finos de logos.
-            if shortside <= 2.0 and longside >= 24:
-                col = f or stroke
-                if col is not None:
-                    th = max(0.75, shortside if shortside > 0 else (d.get("width") or 0.75))
-                    if w_ >= h_:
-                        x0l, y0l, wl, hl = rc.x0, rc.y0 + (h_ - th) / 2, longside, th
-                    else:
-                        x0l, y0l, wl, hl = rc.x0 + (w_ - th) / 2, rc.y0, th, longside
-                    sp = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, E(x0l), E(y0l), E(wl), E(hl))
-                    sp.fill.solid(); sp.fill.fore_color.rgb = rgb(col); sp.line.fill.background(); sp.shadow.inherit = False
-                continue
-            if w_ <= 0 or h_ <= 0: continue
-            big = f and w_ >= 15 and h_ >= 15 and (w_ * h_) >= 0.01 * area
-            if (big and (w_ < W * 0.999 or h_ < H * 0.999)) or (f and (w_ * h_) >= 0.04 * area):
-                sp = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, E(rc.x0), E(rc.y0), E(w_), E(h_))
-                sp.fill.solid(); sp.fill.fore_color.rgb = rgb(f); sp.line.fill.background(); sp.shadow.inherit = False
-            else:
-                small.append(rc)
-        for img in page.get_images(full=True):
-            xref = img[0]
-            try: ex = doc.extract_image(xref)
-            except Exception: continue
-            p = os.path.join(media, f"{pi}_{xref}.{ex['ext']}"); open(p, "wb").write(ex["image"])
-            for rc in page.get_image_rects(xref):
-                try: slide.shapes.add_picture(p, E(rc.x0), E(rc.y0), E(rc.width), E(rc.height))
+        pix = page.get_pixmap(dpi=150)
+        bgp = os.path.join(media, f"{pi}.jpg")
+        try: pix.save(bgp, jpg_quality=88)
+        except TypeError: pix.save(bgp)
+        slide.shapes.add_picture(bgp, 0, 0, prs.slide_width, prs.slide_height)
+        for spans in lines:
+            x0 = min(s["bbox"][0] for s in spans); y0 = min(s["bbox"][1] for s in spans)
+            x1 = max(s["bbox"][2] for s in spans); y1 = max(s["bbox"][3] for s in spans)
+            tb = slide.shapes.add_textbox(E(x0), E(y0), E(x1 - x0 + 6), E(y1 - y0 + 4))
+            tf = tb.text_frame; tf.word_wrap = False
+            for m in ("margin_left", "margin_right", "margin_top", "margin_bottom"): setattr(tf, m, 0)
+            tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+            para = tf.paragraphs[0]
+            prev_x1 = None; prev_sz = None
+            for s in spans:
+                t = s["text"]
+                if prev_x1 is not None and (s["bbox"][0] - prev_x1) > 0.15 * prev_sz and not t.startswith(" "):
+                    t = " " + t
+                run = para.add_run(); run.text = t
+                fn = run.font; fn.size = Pt(s["size"])
+                nm = s.get("font", "")
+                if nm:
+                    base = nm.split("+")[-1].split(",")[0].replace("-", " ").split(" ")[0]
+                    if base: fn.name = base
+                if s["flags"] & 16: fn.bold = True
+                if s["flags"] & 2: fn.italic = True
+                try: fn.color.rgb = rgbi(s["color"])
                 except Exception: pass
-        clusters = []
-        for rc in small:
-            placed = False
-            for i2, c in enumerate(clusters):
-                if rc.intersects(c + (-6, -6, 6, 6)) or c.intersects(rc):
-                    clusters[i2] = uni(c, rc); placed = True; break
-            if not placed: clusters.append(pymupdf.Rect(rc))
-        merged = True
-        while merged:
-            merged = False; out = []
-            for c in clusters:
-                done = False
-                for i2, o in enumerate(out):
-                    if o.intersects(c): out[i2] = uni(o, c); done = True; merged = True; break
-                if not done: out.append(c)
-            clusters = out
-        for c in clusters:
-            c = c & page.rect
-            if c.width < 2 or c.height < 2 or (c.width * c.height) >= 0.5 * area: continue
-            if any(c.intersects(tr) for tr in textrects): continue
-            pix = page.get_pixmap(clip=c, dpi=220, alpha=True)
-            p = os.path.join(media, f"{pi}_clip_{int(c.x0)}_{int(c.y0)}.png"); pix.save(p)
-            slide.shapes.add_picture(p, E(c.x0), E(c.y0), E(c.width), E(c.height))
-        for blk in page.get_text("dict")["blocks"]:
-            if blk.get("type") != 0: continue
-            for line in blk["lines"]:
-                spans = [s for s in line["spans"] if s["text"].strip()]
-                if not spans: continue
-                x0 = min(s["bbox"][0] for s in spans); y0 = min(s["bbox"][1] for s in spans)
-                x1 = max(s["bbox"][2] for s in spans); y1 = max(s["bbox"][3] for s in spans)
-                tb = slide.shapes.add_textbox(E(x0), E(y0), E(x1 - x0 + 6), E(y1 - y0 + 3))
-                tf = tb.text_frame; tf.word_wrap = False
-                for m in ("margin_left", "margin_right", "margin_top", "margin_bottom"): setattr(tf, m, 0)
-                tf.vertical_anchor = MSO_ANCHOR.MIDDLE
-                para = tf.paragraphs[0]
-                prev_x1 = None; prev_sz = None
-                for s in spans:
-                    t = s["text"]
-                    if prev_x1 is not None and (s["bbox"][0] - prev_x1) > 0.15 * prev_sz and not t.startswith(" "):
-                        t = " " + t
-                    run = para.add_run(); run.text = t
-                    fn = run.font; fn.size = Pt(s["size"])
-                    if s["flags"] & 16: fn.bold = True
-                    if s["flags"] & 2: fn.italic = True
-                    try: fn.color.rgb = rgbi(s["color"])
-                    except Exception: pass
-                    prev_x1 = s["bbox"][2]; prev_sz = s["size"]
+                prev_x1 = s["bbox"][2]; prev_sz = s["size"]
     prs.save(dst)
 elif mode == "pptximg":
     # Modo FIEL: cada página vira uma imagem em alta resolução ocupando o slide
