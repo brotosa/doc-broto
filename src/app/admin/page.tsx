@@ -10,7 +10,7 @@ type Profile = {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "comum";
+  role: "admin" | "completo" | "comum";
   approved: boolean;
   active: boolean;
   mustChange: boolean;
@@ -199,7 +199,7 @@ export default function AdminPage() {
       name: novo.name,
       password: novo.password,
       role: novo.role,
-      tools: novo.role === "admin" || novoFull ? null : novo.tools,
+      tools: novo.role !== "comum" || novoFull ? null : novo.tools,
     };
     const r = await fetch("/api/admin/users", {
       method: "POST",
@@ -228,8 +228,8 @@ export default function AdminPage() {
     if (editForm.role !== editTarget.role) patch.role = editForm.role;
     if (editForm.active !== editTarget.active) patch.active = editForm.active;
     if (editForm.password) patch.password = editForm.password;
-    // Ferramentas: fullAccess => null (todas); senão a lista escolhida.
-    const desiredTools = editForm.role === "admin" || editForm.fullAccess ? null : editForm.tools;
+    // Ferramentas: admin/completo ou fullAccess => null (todas); comum => lista.
+    const desiredTools = editForm.role !== "comum" || editForm.fullAccess ? null : editForm.tools;
     const sameTools = JSON.stringify((editTarget.tools ?? []).slice().sort()) === JSON.stringify((desiredTools ?? []).slice().sort())
       && (editTarget.tools == null) === (desiredTools == null);
     if (!sameTools) patch.tools = desiredTools;
@@ -526,17 +526,18 @@ export default function AdminPage() {
               <label className="mb-1 text-xs font-semibold text-gray-500">Tipo</label>
               <select className={input} value={novo.role} onChange={(e) => {
                 const role = e.target.value;
-                // Comum já vem com o preset Básico; Admin tem acesso a tudo.
+                // Comum já vem com o preset Básico; Admin/Completo têm acesso a tudo.
                 setNovo((n) => ({ ...n, role, tools: role === "comum" && n.tools.length === 0 ? presetSlugs("basico") : n.tools }));
-                if (role === "admin") setNovoFull(true); else setNovoFull(false);
+                setNovoFull(role !== "comum");
               }}>
                 <option value="comum">Comum</option>
+                <option value="completo">Completo</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
 
             {/* ferramentas do novo usuário (não se aplica a admin) */}
-            {novo.role !== "admin" && (
+            {novo.role === "comum" && (
               <div className="w-full border-t border-gray-100 pt-3">
                 <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
                   <input type="checkbox" checked={novoFull} onChange={(e) => setNovoFull(e.target.checked)} />
@@ -544,6 +545,13 @@ export default function AdminPage() {
                 </label>
                 {!novoFull && <ToolPicker value={novo.tools} onChange={(v) => setNovo({ ...novo, tools: v })} />}
               </div>
+            )}
+            {novo.role !== "comum" && (
+              <p className="w-full border-t border-gray-100 pt-3 text-xs text-gray-500">
+                {novo.role === "admin"
+                  ? "Admin: acesso a todas as ferramentas e às Configurações."
+                  : "Completo: acesso a todas as ferramentas, sem acesso às Configurações."}
+              </p>
             )}
 
             <button className="w-full rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 sm:w-auto">
@@ -582,7 +590,11 @@ export default function AdminPage() {
                     <td className="px-4 py-3 font-semibold text-gray-800">{u.name}</td>
                     <td className="px-4 py-3 text-gray-600">{u.email}</td>
                     <td className="px-4 py-3">
-                      {u.role === "admin" ? badge("Admin", "bg-brand/10 text-brand") : badge("Comum", "bg-gray-100 text-gray-600")}
+                      {u.role === "admin"
+                        ? badge("Admin", "bg-brand/10 text-brand")
+                        : u.role === "completo"
+                          ? badge("Completo", "bg-brand-green/15 text-brand-green")
+                          : badge("Comum", "bg-gray-100 text-gray-600")}
                     </td>
                     <td className="px-4 py-3">
                       {!u.approved
@@ -1160,6 +1172,7 @@ export default function AdminPage() {
                 setEditForm((f) => ({ ...f, role, tools: role === "comum" && !f.fullAccess && f.tools.length === 0 ? presetSlugs("basico") : f.tools }));
               }}>
                 <option value="comum">Comum</option>
+                <option value="completo">Completo</option>
                 <option value="admin">Admin</option>
               </select>
             </label>
@@ -1183,8 +1196,8 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Acesso às ferramentas (não se aplica a admin, que enxerga tudo) */}
-        {editForm.role !== "admin" && (
+        {/* Acesso às ferramentas — só o usuário "comum" é restringível */}
+        {editForm.role === "comum" && (
           <div className="mt-5 border-t border-gray-100 pt-4">
             <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
               <input
@@ -1205,8 +1218,12 @@ export default function AdminPage() {
             )}
           </div>
         )}
-        {editForm.role === "admin" && (
-          <p className="mt-5 rounded-lg bg-brand/5 px-3 py-2 text-xs text-gray-500">Administradores têm acesso a todas as ferramentas.</p>
+        {editForm.role !== "comum" && (
+          <p className="mt-5 rounded-lg bg-brand/5 px-3 py-2 text-xs text-gray-500">
+            {editForm.role === "admin"
+              ? "Admin: acesso a todas as ferramentas e às Configurações."
+              : "Completo: acesso a todas as ferramentas, sem acesso às Configurações."}
+          </p>
         )}
 
         {editErr && <p className="mt-2 text-sm text-red-600">{editErr}</p>}

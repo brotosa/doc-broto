@@ -22,19 +22,18 @@ export async function POST(req: Request) {
   if (!admin) return NextResponse.json({ error: "acesso restrito" }, { status: 403 });
   try {
     const { email, name, password, role, tools } = await req.json();
-    // Novo usuário começa com as ferramentas padrão (configuráveis). Admin não
-    // precisa de lista (enxerga tudo), mas guardamos null = acesso total.
-    const isAdmin = role === "admin";
-    const allowed = isAdmin
-      ? null
-      : Array.isArray(tools)
-        ? tools
-        : (await getToolConfig()).defaultTools;
+    // Papéis: admin (gerencia tudo), completo (todas as ferramentas, sem
+    // configurações) e comum (ferramentas por permissão). admin e completo =>
+    // acesso total (tools=null); comum começa com a lista enviada ou o padrão.
+    const r: "admin" | "completo" | "comum" = role === "admin" ? "admin" : role === "completo" ? "completo" : "comum";
+    const allowed = r === "comum"
+      ? (Array.isArray(tools) ? tools : (await getToolConfig()).defaultTools)
+      : null;
     const p = await createAccount({
       email,
       name,
       password,
-      role: isAdmin ? "admin" : "comum",
+      role: r,
       approved: true,
       mustChange: true,
       tools: allowed,

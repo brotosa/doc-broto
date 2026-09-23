@@ -4,7 +4,7 @@ import "server-only";
 // - Se DATABASE_URL estiver definido → Postgres (produção).
 // - Caso contrário → armazenamento EM MEMÓRIA (dev/local; some ao reiniciar).
 
-export type Role = "admin" | "comum";
+export type Role = "admin" | "completo" | "comum";
 
 export type UserRow = {
   id: string;
@@ -198,7 +198,7 @@ class PgStore implements Store {
       email: r.email as string,
       name: r.name as string,
       password_hash: r.password_hash as string,
-      role: (r.role as Role) === "admin" ? "admin" : "comum",
+      role: r.role === "admin" ? "admin" : r.role === "completo" ? "completo" : "comum",
       approved: !!r.approved,
       active: !!r.active,
       must_change: !!r.must_change,
