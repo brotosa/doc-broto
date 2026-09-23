@@ -235,6 +235,11 @@ export default function AjudaPage() {
               Aprove, ative/desative, promova e exclua usuários; crie novos; defina a <b>política de senha</b> e
               edite o texto da <b>Política de Privacidade</b>.
             </p>
+            <p className="mt-2 text-sm text-gray-600">
+              <b>Tipos de usuário:</b> <b>Comum</b> — usa só as ferramentas liberadas para ele; <b>Completo</b> —
+              usa <b>todas</b> as ferramentas, mas <b>não</b> acessa estas Configurações; <b>Admin</b> — todas as
+              ferramentas <b>e</b> as Configurações. Só o Admin entra neste painel.
+            </p>
             <Shot name="admin-configuracoes" alt="Aba Configurações" />
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">

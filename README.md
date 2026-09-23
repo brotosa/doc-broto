@@ -49,7 +49,9 @@ demais continuam funcionando.
   conversão e tamanho do lote — `src/lib/server/limits.ts`.
 - **Métricas de uso** no admin (aba *Métricas*): agregação do log de atividade.
 - **Controle de acesso a ferramentas** (`src/lib/access.ts`, `tool-config.ts`,
-  `access-guard.ts`): permissão **por usuário** (dual-list com presets
+  `access-guard.ts`): três papéis — **admin** (todas as ferramentas + painel de
+  Configurações), **completo** (todas as ferramentas, sem Configurações) e
+  **comum** (ferramentas por permissão). Permissão **por usuário** (dual-list com presets
   Básico/Conversões/Completo e atalhos por categoria; novos usuários já vêm com
   as fundamentais; `tools=null` = acesso total, usado pelos usuários existentes)
   e **estado global** por ferramenta — *ativa*, *manutenção* (desativada com

@@ -8,7 +8,9 @@ export const SESSION_MAX_AGE = 60 * 60 * 4; // 4 horas (padrão)
 // Janela usada quando o timeout por inatividade está desligado (idle = 0).
 export const SESSION_ABSOLUTE_FALLBACK = 60 * 60 * 12; // 12 horas
 
-export type Role = "admin" | "comum";
+// "completo" = acesso a todas as ferramentas, mas SEM o painel de Configurações
+// (só "admin" gerencia usuários/ferramentas/políticas).
+export type Role = "admin" | "completo" | "comum";
 export type SessionUser = {
   uid: string;
   email: string;
@@ -39,7 +41,7 @@ export async function verifySession(token: string | undefined): Promise<SessionU
       uid: String(payload.uid),
       email: String(payload.email),
       name: String(payload.name),
-      role: payload.role === "admin" ? "admin" : "comum",
+      role: payload.role === "admin" ? "admin" : payload.role === "completo" ? "completo" : "comum",
       mustChange: Boolean(payload.mustChange),
     };
   } catch {

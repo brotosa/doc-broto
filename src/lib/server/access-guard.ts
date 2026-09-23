@@ -13,9 +13,12 @@ export async function currentAccess(): Promise<ToolsAccess | null> {
   const cfg = await getToolConfig();
   const isAdmin = u.role === "admin";
   let allowed: string[] | null = null;
-  if (!isAdmin) {
+  // Só o usuário "comum" é restringível por lista. "admin" e "completo" têm
+  // acesso a todas as ferramentas (allowed=null). A diferença: admin também
+  // enxerga/gerencia ferramentas ocultas/em manutenção (isAdmin=true).
+  if (u.role === "comum") {
     const prof = await getProfile(u.uid);
-    allowed = prof?.tools ?? null; // null = acesso total
+    allowed = prof?.tools ?? null;
   }
   return { isAdmin, allowed, states: cfg.states };
 }
