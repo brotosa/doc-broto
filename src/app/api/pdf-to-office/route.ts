@@ -1,6 +1,9 @@
 import { fileToBuffer, fileResponse, errorResponse, assertUploadSize } from "@/lib/server/http";
+import { requireToolAccess } from "@/lib/server/access-guard";
 import { pdfToOfficePy } from "@/lib/server/pdf-office";
 import { ProcessingError } from "@/lib/server/exec";
+
+const SLUG: Record<string, string> = { docx: "pdf-para-word", xlsx: "pdf-para-excel", pptx: "pdf-para-powerpoint" };
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -19,6 +22,7 @@ export async function POST(request: Request) {
       | "pptx"
       | null;
     if (!target || !TYPES[target]) throw new ProcessingError("Formato de destino inválido.");
+    await requireToolAccess(SLUG[target]);
     const form = await request.formData();
     const file = form.get("file");
     if (!(file instanceof File) || !/\.pdf$/i.test(file.name)) throw new ProcessingError("Envie um arquivo PDF.");

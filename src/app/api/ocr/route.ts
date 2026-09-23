@@ -1,4 +1,5 @@
 import { readUpload, fileToBuffer, fileResponse, errorResponse } from "@/lib/server/http";
+import { requireToolAccess } from "@/lib/server/access-guard";
 import { ocrPdf } from "@/lib/server/pdf-ops";
 
 export const runtime = "nodejs";
@@ -6,6 +7,7 @@ export const maxDuration = 300;
 
 export async function POST(request: Request) {
   try {
+    await requireToolAccess("ocr-pdf");
     // Numa query string, "+" vira espaço ao decodificar. O tesseract separa
     // múltiplos idiomas por "+", então normalizamos espaços de volta para "+".
     const raw = new URL(request.url).searchParams.get("lang") || "por+eng";

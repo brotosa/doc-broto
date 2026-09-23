@@ -246,6 +246,18 @@ export default function AjudaPage() {
             <Shot name="admin-seguranca" alt="Aba Segurança" />
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+            <h3 className="text-lg font-bold text-gray-900">Ferramentas (acesso e disponibilidade)</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Controla <b>quais ferramentas cada usuário pode usar</b> e a <b>disponibilidade geral</b>:
+            </p>
+            <ul className="mt-2 space-y-1 text-sm text-gray-600">
+              <li>• <b>Por usuário</b> (ao criar/editar): um seletor Disponíveis → Selecionadas, com <b>presets</b> (Básico, Conversões, Completo) e atalhos por categoria. Novos usuários já vêm com as <b>fundamentais</b>. Marque <b>Acesso total</b> para liberar tudo.</li>
+              <li>• <b>Global</b> (aba Ferramentas): cada ferramenta pode ficar <b>🟢 Ativa</b>, <b>🟠 Em manutenção</b> (aparece desativada com aviso, ninguém usa) ou <b>⚫ Oculta</b> (some para todos).</li>
+              <li>• Ferramentas sem acesso <b>aparecem desativadas</b> para o usuário (ele sabe que existem), e o bloqueio também vale no servidor.</li>
+            </ul>
+            <Shot name="admin-ferramentas" alt="Aba Ferramentas" />
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
             <h3 className="text-lg font-bold text-gray-900">Logs</h3>
             <p className="mt-2 text-sm text-gray-600">
               Histórico de auditoria (login, gestão de usuários, alterações de política) com <b>filtros</b> e

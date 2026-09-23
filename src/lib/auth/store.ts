@@ -20,6 +20,9 @@ export type UserRow = {
   created_at: number; // epoch ms
   pwd_changed_at: number; // epoch ms
   pwd_history: string[]; // hashes anteriores (mais recente primeiro)
+  // Ferramentas permitidas (slugs). null = acesso total (compatível com o
+  // comportamento anterior; usuários já existentes ficam com acesso total).
+  tools: string[] | null;
 };
 
 export type AuditRow = {
@@ -173,6 +176,7 @@ class PgStore implements Store {
         END $$;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS pwd_changed_at timestamptz NOT NULL DEFAULT now();
         ALTER TABLE users ADD COLUMN IF NOT EXISTS pwd_history text[] NOT NULL DEFAULT '{}';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS tools jsonb;
         ALTER TABLE audit ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'system';
         CREATE INDEX IF NOT EXISTS audit_category_at_idx ON audit (category, at DESC);
         CREATE TABLE IF NOT EXISTS rate_hits (
@@ -203,6 +207,7 @@ class PgStore implements Store {
       created_at: new Date(r.created_at as string).getTime(),
       pwd_changed_at: r.pwd_changed_at ? new Date(r.pwd_changed_at as string).getTime() : Date.now(),
       pwd_history: (r.pwd_history as string[]) ?? [],
+      tools: Array.isArray(r.tools) ? (r.tools as string[]) : null,
     };
   }
 
@@ -219,10 +224,11 @@ class PgStore implements Store {
   async insert(r: UserRow) {
     const pool = await this.getPool();
     await pool.query(
-      `INSERT INTO users (id,email,name,password_hash,role,approved,active,must_change,failed_attempts,locked_until,created_at,pwd_changed_at,pwd_history)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,to_timestamp($11/1000.0),to_timestamp($12/1000.0),$13)`,
+      `INSERT INTO users (id,email,name,password_hash,role,approved,active,must_change,failed_attempts,locked_until,created_at,pwd_changed_at,pwd_history,tools)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,to_timestamp($11/1000.0),to_timestamp($12/1000.0),$13,$14)`,
       [r.id, r.email, r.name, r.password_hash, r.role, r.approved, r.active, r.must_change,
-       r.failed_attempts, r.locked_until ? new Date(r.locked_until) : null, r.created_at, r.pwd_changed_at, r.pwd_history]
+       r.failed_attempts, r.locked_until ? new Date(r.locked_until) : null, r.created_at, r.pwd_changed_at, r.pwd_history,
+       r.tools == null ? null : JSON.stringify(r.tools)]
     );
   }
   async update(id: string, f: Partial<UserRow>) {
@@ -233,6 +239,9 @@ class PgStore implements Store {
       if (k === "locked_until" || k === "pwd_changed_at") {
         cols.push(`${k}=$${i++}`);
         vals.push(v ? new Date(v as number) : null);
+      } else if (k === "tools") {
+        cols.push(`${k}=$${i++}`);
+        vals.push(v == null ? null : JSON.stringify(v));
       } else {
         cols.push(`${k}=$${i++}`);
         vals.push(v);

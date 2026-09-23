@@ -1,4 +1,5 @@
 import { fileToBuffer, fileResponse, errorResponse } from "@/lib/server/http";
+import { requireToolAccess } from "@/lib/server/access-guard";
 import { maxUploadBytes } from "@/lib/server/limits";
 import { combineToPdf, combineToWord, COMBINE_ACCEPT_RE, type InputFile } from "@/lib/server/combine";
 import { ProcessingError } from "@/lib/server/exec";
@@ -11,6 +12,7 @@ const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.doc
 export async function POST(request: Request) {
   try {
     const target = new URL(request.url).searchParams.get("target") === "docx" ? "docx" : "pdf";
+    await requireToolAccess(target === "docx" ? "combinar-word" : "combinar-pdf");
     const form = await request.formData();
     const raw = form.getAll("files").filter((f): f is File => f instanceof File);
     if (raw.length < 2) throw new ProcessingError("Envie ao menos dois arquivos para combinar.");

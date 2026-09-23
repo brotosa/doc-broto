@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireToolAccess } from "@/lib/server/access-guard";
 import { fileResponse, errorResponse } from "@/lib/server/http";
 import { htmlToPdf } from "@/lib/server/browser";
 import { ProcessingError } from "@/lib/server/exec";
@@ -8,6 +9,7 @@ export const maxDuration = 120;
 
 export async function POST(request: Request) {
   try {
+    await requireToolAccess("html-para-pdf");
     const body = await request.json().catch(() => ({}));
     const url = typeof body.url === "string" ? body.url.trim() : "";
     const html = typeof body.html === "string" ? body.html : "";

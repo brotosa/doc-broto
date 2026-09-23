@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/Modal";
+import { ToolPicker } from "@/components/ToolPicker";
+import { TOOLS, CATEGORY_LABELS, type ToolCategory } from "@/lib/tools";
+import type { ToolState } from "@/lib/access";
 
 type Profile = {
   id: string;
@@ -12,6 +15,7 @@ type Profile = {
   active: boolean;
   mustChange: boolean;
   createdAt: number;
+  tools: string[] | null;
 };
 type Audit = { action: string; byName?: string; targetName?: string; detail?: string; at?: number };
 type Policy = {
@@ -34,6 +38,7 @@ type SecurityPolicy = {
 
 const input = "rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-brand";
 const LOG_PAGE_SIZES = [10, 20, 50, 100];
+const CAT_ORDER_ADMIN: ToolCategory[] = ["organizar", "otimizar", "converter", "editar", "seguranca", "intelligence"];
 
 // Barras verticais simples (uso por dia) — sem dependência de gráfico.
 function MiniBars({ data }: { data: { label: string; value: number }[] }) {
@@ -76,7 +81,7 @@ function RankBars({ items }: { items: { label: string; count: number }[] }) {
 }
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"config" | "security" | "juridico" | "limits" | "metrics" | "logs" | "activity">("config");
+  const [tab, setTab] = useState<"config" | "security" | "juridico" | "ferramentas" | "limits" | "metrics" | "logs" | "activity">("config");
   const [users, setUsers] = useState<Profile[]>([]);
   const [audit, setAudit] = useState<Audit[]>([]);
   const [activity, setActivity] = useState<Audit[]>([]);
@@ -90,7 +95,12 @@ export default function AdminPage() {
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
   const [err, setErr] = useState("");
-  const [novo, setNovo] = useState({ email: "", name: "", password: "", role: "comum" });
+  const [novo, setNovo] = useState<{ email: string; name: string; password: string; role: string; tools: string[] }>({ email: "", name: "", password: "", role: "comum", tools: [] });
+
+  // config global de ferramentas (aba Ferramentas)
+  const [toolStates, setToolStates] = useState<Record<string, ToolState>>({});
+  const [defaultTools, setDefaultTools] = useState<string[]>([]);
+  const [toolsMsg, setToolsMsg] = useState("");
 
   // busca e ordenação da lista de usuários (padrão: nome A→Z)
   const [uSearch, setUSearch] = useState("");
@@ -98,8 +108,9 @@ export default function AdminPage() {
 
   // modais
   const [editTarget, setEditTarget] = useState<Profile | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", email: "", role: "comum", active: true, password: "" });
+  const [editForm, setEditForm] = useState<{ name: string; email: string; role: string; active: boolean; password: string; tools: string[]; fullAccess: boolean }>({ name: "", email: "", role: "comum", active: true, password: "", tools: [], fullAccess: false });
   const [editErr, setEditErr] = useState("");
+  const [novoFull, setNovoFull] = useState(false);
   const [delTarget, setDelTarget] = useState<Profile | null>(null);
 
   // política de senha
@@ -136,7 +147,7 @@ export default function AdminPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
 
   const load = useCallback(async () => {
-    const [u, a, p, act, pv, sp, se, sg, lm, mt] = await Promise.all([
+    const [u, a, p, act, pv, sp, se, sg, lm, mt, tcfg] = await Promise.all([
       fetch("/api/admin/users").then((r) => r.json()),
       fetch("/api/admin/audit").then((r) => r.json()),
       fetch("/api/admin/policy").then((r) => r.json()),
@@ -147,6 +158,7 @@ export default function AdminPage() {
       fetch("/api/admin/sign-policy").then((r) => r.json()),
       fetch("/api/admin/limits").then((r) => r.json()),
       fetch("/api/admin/metrics").then((r) => r.json()),
+      fetch("/api/admin/tool-states").then((r) => r.json()),
     ]);
     setUsers(u.users || []);
     setAudit(a.entries || []);
@@ -158,6 +170,12 @@ export default function AdminPage() {
     if (sg.policy) setSign(sg.policy);
     if (lm.limits) setLimits(lm.limits);
     if (mt && typeof mt.total === "number") setMetrics(mt);
+    if (tcfg && tcfg.states) {
+      setToolStates(tcfg.states);
+      const dt: string[] = Array.isArray(tcfg.defaultTools) ? tcfg.defaultTools : [];
+      setDefaultTools(dt);
+      setNovo((n) => (n.tools.length === 0 ? { ...n, tools: dt } : n));
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -176,19 +194,27 @@ export default function AdminPage() {
   async function criar(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
+    const payload = {
+      email: novo.email,
+      name: novo.name,
+      password: novo.password,
+      role: novo.role,
+      tools: novo.role === "admin" || novoFull ? null : novo.tools,
+    };
     const r = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(novo),
+      body: JSON.stringify(payload),
     });
     if (!r.ok) { setErr((await r.json()).error || "Falha ao criar usuário."); return; }
-    setNovo({ email: "", name: "", password: "", role: "comum" });
+    setNovo({ email: "", name: "", password: "", role: "comum", tools: defaultTools });
+    setNovoFull(false);
     await load();
   }
 
   function openEdit(u: Profile) {
     setEditErr("");
-    setEditForm({ name: u.name, email: u.email, role: u.role, active: u.active, password: "" });
+    setEditForm({ name: u.name, email: u.email, role: u.role, active: u.active, password: "", tools: u.tools ?? [], fullAccess: u.tools == null });
     setEditTarget(u);
   }
 
@@ -202,6 +228,11 @@ export default function AdminPage() {
     if (editForm.role !== editTarget.role) patch.role = editForm.role;
     if (editForm.active !== editTarget.active) patch.active = editForm.active;
     if (editForm.password) patch.password = editForm.password;
+    // Ferramentas: fullAccess => null (todas); senão a lista escolhida.
+    const desiredTools = editForm.role === "admin" || editForm.fullAccess ? null : editForm.tools;
+    const sameTools = JSON.stringify((editTarget.tools ?? []).slice().sort()) === JSON.stringify((desiredTools ?? []).slice().sort())
+      && (editTarget.tools == null) === (desiredTools == null);
+    if (!sameTools) patch.tools = desiredTools;
     if (Object.keys(patch).length === 0) { setEditTarget(null); return; }
     const r = await fetch(`/api/admin/users/${editTarget.id}`, {
       method: "PATCH",
@@ -307,6 +338,27 @@ export default function AdminPage() {
     if (!r.ok) { setLimitsMsg(d.error || "Falha ao salvar."); return; }
     setLimits(d.limits);
     setLimitsMsg("Limites salvos ✓");
+  }
+
+  function setState(slug: string, st: ToolState) {
+    setToolStates((prev) => {
+      const n = { ...prev };
+      if (st === "active") delete n[slug]; else n[slug] = st;
+      return n;
+    });
+  }
+  async function saveToolStates() {
+    setToolsMsg("");
+    const r = await fetch("/api/admin/tool-states", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ states: toolStates, defaultTools }),
+    });
+    const d = await r.json();
+    if (!r.ok) { setToolsMsg(d.error || "Falha ao salvar."); return; }
+    setToolStates(d.states || {});
+    setDefaultTools(Array.isArray(d.defaultTools) ? d.defaultTools : []);
+    setToolsMsg("Disponibilidade salva ✓");
   }
 
   const genPassword = () => {
@@ -423,7 +475,7 @@ export default function AdminPage() {
   const page = Math.min(logPage, totalPages - 1);
   const pageItems = filtered.slice(page * logPageSize, page * logPageSize + logPageSize);
 
-  const tabBtn = (key: "config" | "security" | "juridico" | "limits" | "metrics" | "logs" | "activity", label: string, count?: number) => (
+  const tabBtn = (key: "config" | "security" | "juridico" | "ferramentas" | "limits" | "metrics" | "logs" | "activity", label: string, count?: number) => (
     <button
       onClick={() => setTab(key)}
       className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${tab === key ? "bg-white text-brand shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
@@ -444,6 +496,7 @@ export default function AdminPage() {
       <div className="inline-flex w-fit gap-1 rounded-xl bg-gray-100 p-1">
         {tabBtn("config", "Configurações", pend)}
         {tabBtn("security", "Segurança")}
+        {tabBtn("ferramentas", "Ferramentas")}
         {tabBtn("juridico", "Jurídico")}
         {tabBtn("limits", "Limites")}
         {tabBtn("metrics", "Métricas")}
@@ -476,7 +529,19 @@ export default function AdminPage() {
                 <option value="admin">Admin</option>
               </select>
             </div>
-            <button className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">
+
+            {/* ferramentas do novo usuário (não se aplica a admin) */}
+            {novo.role !== "admin" && (
+              <div className="w-full border-t border-gray-100 pt-3">
+                <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <input type="checkbox" checked={novoFull} onChange={(e) => setNovoFull(e.target.checked)} />
+                  Acesso total a todas as ferramentas
+                </label>
+                {!novoFull && <ToolPicker value={novo.tools} onChange={(v) => setNovo({ ...novo, tools: v })} />}
+              </div>
+            )}
+
+            <button className="w-full rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 sm:w-auto">
               + Criar usuário
             </button>
           </form>
@@ -769,6 +834,60 @@ export default function AdminPage() {
         </div>
       )}
 
+      {tab === "ferramentas" && (
+        <div className="flex flex-col gap-8">
+          <div className="rounded-2xl border border-gray-100 bg-white p-5">
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-gray-400">Disponibilidade das ferramentas</h2>
+              <div className="flex items-center gap-3">
+                {toolsMsg && <span className={`text-sm ${toolsMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{toolsMsg}</span>}
+                <button onClick={saveToolStates} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar</button>
+              </div>
+            </div>
+            <p className="mb-4 text-sm text-gray-500">
+              <b>Ativa</b>: normal. <b>Manutenção</b>: aparece desativada com aviso, ninguém usa. <b>Oculta</b>: some para todos (você, admin, continua vendo).
+            </p>
+            {CAT_ORDER_ADMIN.map((cat) => {
+              const tools = TOOLS.filter((t) => t.category === cat);
+              if (!tools.length) return null;
+              return (
+                <div key={cat} className="mb-4">
+                  <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-brand">{CATEGORY_LABELS[cat]}</h3>
+                  <div className="grid gap-1.5 sm:grid-cols-2">
+                    {tools.map((t) => {
+                      const st: ToolState = toolStates[t.slug] ?? "active";
+                      return (
+                        <div key={t.slug} className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 px-3 py-1.5">
+                          <span className="truncate text-sm text-gray-700">{t.title}</span>
+                          <select value={st} onChange={(e) => setState(t.slug, e.target.value as ToolState)}
+                            className={`rounded-md border px-2 py-1 text-xs font-semibold ${st === "active" ? "border-gray-200 text-gray-600" : st === "maintenance" ? "border-brand-yellow text-brand-ink bg-brand-yellow/15" : "border-gray-300 text-gray-500 bg-gray-100"}`}>
+                            <option value="active">🟢 Ativa</option>
+                            <option value="maintenance">🟠 Manutenção</option>
+                            <option value="hidden">⚫ Oculta</option>
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white p-5">
+            <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-gray-400">Padrão para novos usuários</h2>
+            <p className="mb-3 text-sm text-gray-500">
+              Ferramentas já pré-selecionadas ao criar um novo usuário. Não afeta usuários existentes.
+            </p>
+            <ToolPicker value={defaultTools} onChange={setDefaultTools} />
+            <div className="mt-3 flex items-center gap-3">
+              <button onClick={saveToolStates} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90">Salvar</button>
+              {toolsMsg && <span className={`text-sm ${toolsMsg.includes("✓") ? "text-green-600" : "text-red-600"}`}>{toolsMsg}</span>}
+            </div>
+          </div>
+        </div>
+      )}
+
       {tab === "limits" && (
         <div className="flex flex-col gap-8">
           {limits && (
@@ -1054,6 +1173,23 @@ export default function AdminPage() {
             {editForm.password && <p className="mt-1 text-xs text-gray-400">A pessoa será obrigada a trocá-la no próximo acesso.</p>}
           </div>
         </div>
+
+        {/* Acesso às ferramentas (não se aplica a admin, que enxerga tudo) */}
+        {editForm.role !== "admin" && (
+          <div className="mt-5 border-t border-gray-100 pt-4">
+            <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input type="checkbox" checked={editForm.fullAccess} onChange={(e) => setEditForm({ ...editForm, fullAccess: e.target.checked })} />
+              Acesso total a todas as ferramentas
+            </label>
+            {!editForm.fullAccess && (
+              <ToolPicker value={editForm.tools} onChange={(v) => setEditForm({ ...editForm, tools: v })} />
+            )}
+          </div>
+        )}
+        {editForm.role === "admin" && (
+          <p className="mt-5 rounded-lg bg-brand/5 px-3 py-2 text-xs text-gray-500">Administradores têm acesso a todas as ferramentas.</p>
+        )}
+
         {editErr && <p className="mt-2 text-sm text-red-600">{editErr}</p>}
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={() => setEditTarget(null)} className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Cancelar</button>

@@ -37,6 +37,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (typeof patch.name === "string") acoes.push("renomeou");
     if (typeof patch.email === "string") acoes.push("alterou e-mail");
     if (patch.password) acoes.push("redefiniu senha");
+    if (patch.tools !== undefined) acoes.push("ajustou ferramentas");
     await audit({
       action: acoes.join(", ") || "editou usuário",
       byName: admin.name,

@@ -48,6 +48,14 @@ demais continuam funcionando.
 - **Limites configuráveis** pelo admin (aba *Limites*): tamanho de upload, timeout de
   conversão e tamanho do lote — `src/lib/server/limits.ts`.
 - **Métricas de uso** no admin (aba *Métricas*): agregação do log de atividade.
+- **Controle de acesso a ferramentas** (`src/lib/access.ts`, `tool-config.ts`,
+  `access-guard.ts`): permissão **por usuário** (dual-list com presets
+  Básico/Conversões/Completo e atalhos por categoria; novos usuários já vêm com
+  as fundamentais; `tools=null` = acesso total, usado pelos usuários existentes)
+  e **estado global** por ferramenta — *ativa*, *manutenção* (desativada com
+  aviso) ou *oculta*. O bloqueio é aplicado na **UI** (cards desativados,
+  tela de bloqueio) **e no back-end** (cada rota de ferramenta chama
+  `requireToolAccess`). Admin sempre tem acesso a tudo.
 
 ### PDFs protegidos por senha
 

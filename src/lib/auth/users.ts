@@ -15,6 +15,7 @@ export type Profile = {
   active: boolean;
   mustChange: boolean;
   createdAt: number;
+  tools: string[] | null; // ferramentas permitidas; null = acesso total
 };
 
 const HISTORY_KEEP = 12;
@@ -36,6 +37,7 @@ function toProfile(r: UserRow): Profile {
     active: r.active,
     mustChange: r.must_change,
     createdAt: r.created_at,
+    tools: r.tools ?? null,
   };
 }
 
@@ -101,6 +103,7 @@ type CreateInput = {
   role?: Role;
   approved?: boolean;
   mustChange?: boolean;
+  tools?: string[] | null;
 };
 export async function createAccount(input: CreateInput, opts?: { enforcePolicy?: boolean }): Promise<Profile> {
   await init();
@@ -132,6 +135,7 @@ export async function createAccount(input: CreateInput, opts?: { enforcePolicy?:
     created_at: now,
     pwd_changed_at: now,
     pwd_history: [],
+    tools: input.tools === undefined ? null : input.tools,
   };
   await store.insert(row);
   return toProfile(row);
@@ -148,7 +152,7 @@ export async function listProfiles(): Promise<Profile[]> {
   return (await getStore().list()).map(toProfile);
 }
 
-type Patch = { name?: string; email?: string; role?: Role; approved?: boolean; active?: boolean; password?: string };
+type Patch = { name?: string; email?: string; role?: Role; approved?: boolean; active?: boolean; password?: string; tools?: string[] | null };
 export async function updateUser(id: string, patch: Patch): Promise<void> {
   await init();
   const store = getStore();
@@ -167,6 +171,7 @@ export async function updateUser(id: string, patch: Patch): Promise<void> {
   if (patch.role) fields.role = patch.role;
   if (typeof patch.approved === "boolean") fields.approved = patch.approved;
   if (typeof patch.active === "boolean") fields.active = patch.active;
+  if (patch.tools !== undefined) fields.tools = patch.tools === null ? null : patch.tools.filter((s) => typeof s === "string");
   if (patch.password) {
     const err = validatePassword(patch.password, await getPolicy());
     if (err) throw new Error(err);

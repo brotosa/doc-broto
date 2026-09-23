@@ -514,3 +514,36 @@ export const READY_TOOLS = TOOLS.filter((t) => t.ready);
 export function getTool(slug: string): Tool | undefined {
   return TOOLS.find((t) => t.slug === slug);
 }
+
+// -------- Controle de acesso a ferramentas --------
+
+// Ferramentas "fundamentais": pré-selecionadas na criação de usuário e o
+// preset "Básico". O admin pode ajustar o padrão de novos usuários nas
+// Configurações (aba Ferramentas); esta lista é o fallback inicial.
+export const FUNDAMENTAL_TOOLS: string[] = [
+  "juntar-pdf",
+  "dividir-pdf",
+  "comprimir-pdf",
+  "pdf-para-word",
+  "word-para-pdf",
+  "pdf-para-excel",
+  "pdf-para-jpg",
+  "jpg-para-pdf",
+  "assinar-pdf",
+  "desbloquear-pdf",
+  "proteger-pdf",
+];
+
+export type PresetName = "basico" | "conversoes" | "completo";
+export const PRESET_LABELS: Record<PresetName, string> = {
+  basico: "Básico (fundamentais)",
+  conversoes: "Conversões",
+  completo: "Completo (tudo)",
+};
+
+/** Slugs de um preset de acesso. */
+export function presetSlugs(name: PresetName): string[] {
+  if (name === "completo") return TOOLS.map((t) => t.slug);
+  if (name === "conversoes") return TOOLS.filter((t) => t.category === "converter").map((t) => t.slug);
+  return [...FUNDAMENTAL_TOOLS];
+}

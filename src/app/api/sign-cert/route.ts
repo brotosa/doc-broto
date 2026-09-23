@@ -1,4 +1,5 @@
 import { fileToBuffer, fileResponse, errorResponse, assertUploadSize } from "@/lib/server/http";
+import { requireToolAccess } from "@/lib/server/access-guard";
 import { signPdfWithCert } from "@/lib/server/pdf-sign";
 import { ProcessingError } from "@/lib/server/exec";
 
@@ -7,6 +8,7 @@ export const maxDuration = 300;
 
 export async function POST(request: Request) {
   try {
+    await requireToolAccess("assinar-certificado");
     const form = await request.formData();
     const pdf = form.get("file");
     const cert = form.get("cert");
