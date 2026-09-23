@@ -23,6 +23,8 @@ export function ToolPicker({ value, onChange }: { value: string[]; onChange: (v:
   const [markSel, setMarkSel] = useState<Set<string>>(new Set());
   const [markAvail, setMarkAvail] = useState<Set<string>>(new Set());
   const [q, setQ] = useState("");
+  const [flash, setFlash] = useState("");
+  const flashMsg = (m: string) => { setFlash(m); window.setTimeout(() => setFlash(""), 1600); };
 
   const available = TOOLS.map((t) => t.slug).filter((s) => !selected.has(s)).sort(order);
   const chosen = [...value].sort(order);
@@ -65,16 +67,17 @@ export function ToolPicker({ value, onChange }: { value: string[]; onChange: (v:
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold text-gray-500">Presets:</span>
         {(Object.keys(PRESET_LABELS) as PresetName[]).map((p) => (
-          <button key={p} type="button" onClick={() => set(presetSlugs(p))}
+          <button key={p} type="button" onClick={() => { set(presetSlugs(p)); flashMsg(`Preset “${PRESET_LABELS[p]}” aplicado ✓`); }}
             className="rounded-full bg-brand/10 px-2.5 py-1 text-xs font-semibold text-brand hover:bg-brand/20">
             {PRESET_LABELS[p]}
           </button>
         ))}
+        {flash && <span className="text-xs font-semibold text-brand-green">{flash}</span>}
       </div>
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
         <span className="text-xs font-semibold text-gray-500">+ categoria:</span>
         {CAT_ORDER.map((c) => (
-          <button key={c} type="button" onClick={() => addCategory(c)}
+          <button key={c} type="button" onClick={() => { addCategory(c); flashMsg(`+ ${CATEGORY_LABELS[c]} ✓`); }}
             className="rounded-md border border-gray-200 px-2 py-0.5 text-xs text-gray-600 hover:border-brand hover:text-brand">
             {CATEGORY_LABELS[c]}
           </button>

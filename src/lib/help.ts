@@ -33,7 +33,7 @@ export const HELP_STEPS: Record<string, string[]> = {
   "extrair-imagens": ["Envie o PDF.", "Clique em Extrair imagens — sai um .zip."],
   "pdf-para-png": ["Envie o PDF.", "Escolha a qualidade.", "Clique em Converter para PNG."],
   "editar-pdf": ["Envie o PDF.", "Adicione texto, imagens ou formas na página.", "Clique em Baixar PDF editado."],
-  "marca-dagua": ["Envie o PDF.", "Escreva o texto (ou escolha imagem) e ajuste posição e transparência.", "Clique em Adicionar marca d'água."],
+  "marca-dagua": ["Envie o PDF.", "O texto já vem “BROTO” e em ladrilho diagonal (repetido na página); ajuste texto, tamanho e transparência se quiser.", "Clique em Adicionar marca d'água."],
   "numeros-de-pagina": ["Envie o PDF.", "Escolha a posição e o formato.", "Clique em Adicionar números."],
   "comparar-pdf": ["Envie os dois PDFs (antes e depois).", "Veja o realce visual das diferenças lado a lado.", "Clique em Comparar texto para ver o que foi removido (vermelho) e adicionado (verde)."],
   "recortar-pdf": ["Envie o PDF.", "Ajuste as margens — a área escura será removida (prévia ao vivo).", "Clique em Recortar e baixar PDF."],
