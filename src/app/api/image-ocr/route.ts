@@ -1,4 +1,5 @@
 import { readUpload, fileToBuffer, fileResponse, errorResponse } from "@/lib/server/http";
+import { requireToolAccess } from "@/lib/server/access-guard";
 import { imageToText } from "@/lib/server/pdf-ops";
 
 export const runtime = "nodejs";
@@ -6,6 +7,7 @@ export const maxDuration = 120;
 
 export async function POST(request: Request) {
   try {
+    await requireToolAccess("imagem-para-texto");
     const raw = new URL(request.url).searchParams.get("lang") || "por+eng";
     const lang = raw.trim().replace(/\s+/g, "+") || "por+eng";
     const file = await readUpload(request, "file", /\.(jpe?g|png|tiff?|bmp|webp)$/i);

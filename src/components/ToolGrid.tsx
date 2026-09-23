@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { TOOLS, CATEGORY_LABELS, type Tool, type ToolCategory } from "@/lib/tools";
+import { availability, globalState, type ToolsAccess } from "@/lib/access";
 import styles from "./ToolGrid.module.css";
 
 const FILTERS: Array<{ key: "todas" | ToolCategory; label: string; dot: string }> = [
@@ -23,29 +24,33 @@ const FEATURED: Record<string, "featBlue" | "featGreen"> = {
 };
 const WIDE = new Set(["pdf-para-word", "ocr-pdf"]);
 
-function FeaturedCell({ tool, i, variant }: { tool: Tool; i: number; variant: "featBlue" | "featGreen" }) {
-  return (
-    <Link
-      href={`/${tool.slug}`}
-      className={clsx(styles.cell, styles.feat, styles[variant])}
-      style={{ "--i": i } as CSSProperties}
-    >
+function FeaturedCell({ tool, i, variant, enabled, badge }: { tool: Tool; i: number; variant: "featBlue" | "featGreen"; enabled: boolean; badge?: string }) {
+  const inner = (
+    <>
       <span className={styles.sheen} />
+      {badge && <span className={styles.soon}>{badge}</span>}
       <div className={styles.cnt}>
         <div className={styles.featIcon} dangerouslySetInnerHTML={{ __html: tool.glyph }} />
         <h3 className={styles.title}>{tool.title}</h3>
         <p className={styles.desc}>{tool.description}</p>
       </div>
-    </Link>
+    </>
+  );
+  const cls = clsx(styles.cell, styles.feat, styles[variant], !enabled && styles.disabled);
+  const style = { "--i": i } as CSSProperties;
+  return enabled ? (
+    <Link href={`/${tool.slug}`} className={cls} style={style}>{inner}</Link>
+  ) : (
+    <div className={cls} style={style}>{inner}</div>
   );
 }
 
-function Cell({ tool, i, wide }: { tool: Tool; i: number; wide: boolean }) {
+function Cell({ tool, i, wide, enabled, badge }: { tool: Tool; i: number; wide: boolean; enabled: boolean; badge?: string }) {
   const body = (
     <>
       <span className={styles.glow} />
       <span className={styles.inner} />
-      {!tool.ready && <span className={styles.soon}>Em breve</span>}
+      {badge && <span className={styles.soon}>{badge}</span>}
       <div className={styles.cnt}>
         <div
           className={clsx("grid h-11 w-11 place-items-center rounded-xl text-lg font-bold", tool.color, styles.icon)}
@@ -53,15 +58,15 @@ function Cell({ tool, i, wide }: { tool: Tool; i: number; wide: boolean }) {
         />
         <h3 className={styles.title}>{tool.title}</h3>
         <p className={styles.desc}>{tool.description}</p>
-        {tool.ready && <span className={styles.go}>Abrir →</span>}
+        {enabled && <span className={styles.go}>Abrir →</span>}
       </div>
     </>
   );
 
-  const cls = clsx(styles.cell, wide && styles.wide, !tool.ready && styles.disabled);
+  const cls = clsx(styles.cell, wide && styles.wide, !enabled && styles.disabled);
   const style = { "--i": i } as CSSProperties;
 
-  return tool.ready ? (
+  return enabled ? (
     <Link href={`/${tool.slug}`} className={cls} style={style}>
       {body}
     </Link>
@@ -76,15 +81,47 @@ function norm(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
+const DEFAULT_ACCESS: ToolsAccess = { isAdmin: false, allowed: null, states: {} };
+
 export function ToolGrid() {
   const [filter, setFilter] = useState<"todas" | ToolCategory>("todas");
   const [query, setQuery] = useState("");
+  // Acesso efetivo (papel + permissões + estados globais). Enquanto carrega,
+  // assume acesso total para não "piscar" tudo desabilitado.
+  const [access, setAccess] = useState<ToolsAccess>(DEFAULT_ACCESS);
+  useEffect(() => {
+    fetch("/api/my-tools")
+      .then((r) => (r.ok ? r.json() : DEFAULT_ACCESS))
+      .then((a) => setAccess({ isAdmin: !!a.isAdmin, allowed: a.allowed ?? null, states: a.states ?? {} }))
+      .catch(() => {});
+  }, []);
+
+  // Rótulo do selo de um card desativado (ou de aviso para admin).
+  function badgeFor(tool: Tool): string | undefined {
+    if (!tool.ready) return "Em breve";
+    const st = globalState(access.states, tool.slug);
+    const a = availability(access, tool.slug);
+    if (access.isAdmin) {
+      if (st === "hidden") return "Oculta";
+      if (st === "maintenance") return "Manutenção";
+      return undefined;
+    }
+    if (a.reason === "maintenance") return "Manutenção";
+    if (a.reason === "no-access") return "Sem acesso";
+    return undefined;
+  }
+  function enabledFor(tool: Tool): boolean {
+    return tool.ready && availability(access, tool.slug).enabled;
+  }
+
   const q = norm(query.trim());
   const isAll = filter === "todas" && !q;
   const base = filter === "todas" || q ? TOOLS : TOOLS.filter((t) => t.category === filter);
-  const visible = q
+  const searched = q
     ? base.filter((t) => norm(t.title).includes(q) || norm(t.description).includes(q))
     : base;
+  // Esconde ferramentas ocultas (exceto para o admin, que gerencia).
+  const visible = searched.filter((t) => availability(access, t.slug).visible);
 
   return (
     <div>
@@ -126,9 +163,11 @@ export function ToolGrid() {
         /* key remonta a grade → a cascata roda de novo ao filtrar/buscar */
         <div key={filter + q} className={styles.grid}>
           {visible.map((tool, i) => {
+            const enabled = enabledFor(tool);
+            const badge = badgeFor(tool);
             const variant = isAll ? FEATURED[tool.slug] : undefined;
-            if (variant) return <FeaturedCell key={tool.slug} tool={tool} i={i} variant={variant} />;
-            return <Cell key={tool.slug} tool={tool} i={i} wide={isAll && WIDE.has(tool.slug)} />;
+            if (variant) return <FeaturedCell key={tool.slug} tool={tool} i={i} variant={variant} enabled={enabled} badge={badge} />;
+            return <Cell key={tool.slug} tool={tool} i={i} wide={isAll && WIDE.has(tool.slug)} enabled={enabled} badge={badge} />;
           })}
         </div>
       )}

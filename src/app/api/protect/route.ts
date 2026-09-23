@@ -1,4 +1,5 @@
 import { fileToBuffer, fileResponse, errorResponse, assertUploadSize } from "@/lib/server/http";
+import { requireToolAccess } from "@/lib/server/access-guard";
 import { protectPdf } from "@/lib/server/pdf-ops";
 import { ProcessingError } from "@/lib/server/exec";
 
@@ -7,6 +8,7 @@ export const maxDuration = 300;
 
 export async function POST(request: Request) {
   try {
+    await requireToolAccess("proteger-pdf");
     const form = await request.formData();
     const file = form.get("file");
     const password = String(form.get("password") || "");

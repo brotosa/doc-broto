@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Tool } from "@/lib/tools";
 import { performDownload, formatBytes } from "@/lib/download";
+import { availability, type ToolsAccess } from "@/lib/access";
 
 type Result = { blob: Blob; filename: string };
 
@@ -18,6 +19,14 @@ export function ToolShell({
 }) {
   const [result, setResult] = useState<Result | null>(null);
   const [resetKey, setResetKey] = useState(0);
+  const [access, setAccess] = useState<ToolsAccess | null>(null);
+
+  useEffect(() => {
+    fetch("/api/my-tools")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((a) => setAccess(a ? { isAdmin: !!a.isAdmin, allowed: a.allowed ?? null, states: a.states ?? {} } : { isAdmin: false, allowed: null, states: {} }))
+      .catch(() => setAccess({ isAdmin: false, allowed: null, states: {} }));
+  }, []);
 
   useEffect(() => {
     const h = (e: Event) => {
@@ -71,9 +80,36 @@ export function ToolShell({
             ↻ Gerar novo
           </button>
         </div>
+      ) : access && !availability(access, tool.slug).enabled ? (
+        <LockCard reason={availability(access, tool.slug).reason} />
       ) : (
         <div key={resetKey}>{children}</div>
       )}
+    </div>
+  );
+}
+
+function LockCard({ reason }: { reason?: "maintenance" | "no-access" }) {
+  const isMaint = reason === "maintenance";
+  return (
+    <div className="mx-auto max-w-md rounded-3xl border border-gray-100 bg-white p-8 text-center shadow-sm">
+      <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-brand-yellow/20 text-3xl">
+        {isMaint ? "🛠️" : "🔒"}
+      </div>
+      <h2 className="text-xl font-bold text-gray-900">
+        {isMaint ? "Ferramenta em manutenção" : "Sem acesso a esta ferramenta"}
+      </h2>
+      <p className="mx-auto mt-2 max-w-xs text-sm text-gray-500">
+        {isMaint
+          ? "Esta ferramenta está temporariamente indisponível. Tente novamente mais tarde."
+          : "Você não tem permissão para usar esta ferramenta. Fale com o administrador para liberar o acesso."}
+      </p>
+      <Link
+        href="/"
+        className="mt-6 inline-block rounded-xl bg-brand px-5 py-2.5 font-semibold text-white transition hover:bg-brand-dark"
+      >
+        Voltar às ferramentas
+      </Link>
     </div>
   );
 }
