@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { ToolPicker } from "@/components/ToolPicker";
-import { TOOLS, CATEGORY_LABELS, type ToolCategory } from "@/lib/tools";
+import { TOOLS, CATEGORY_LABELS, presetSlugs, type ToolCategory } from "@/lib/tools";
 import type { ToolState } from "@/lib/access";
 
 type Profile = {
@@ -95,7 +95,7 @@ export default function AdminPage() {
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
   const [err, setErr] = useState("");
-  const [novo, setNovo] = useState<{ email: string; name: string; password: string; role: string; tools: string[] }>({ email: "", name: "", password: "", role: "comum", tools: [] });
+  const [novo, setNovo] = useState<{ email: string; name: string; password: string; role: string; tools: string[] }>({ email: "", name: "", password: "", role: "comum", tools: presetSlugs("basico") });
 
   // config global de ferramentas (aba Ferramentas)
   const [toolStates, setToolStates] = useState<Record<string, ToolState>>({});
@@ -207,7 +207,7 @@ export default function AdminPage() {
       body: JSON.stringify(payload),
     });
     if (!r.ok) { setErr((await r.json()).error || "Falha ao criar usuário."); return; }
-    setNovo({ email: "", name: "", password: "", role: "comum", tools: defaultTools });
+    setNovo({ email: "", name: "", password: "", role: "comum", tools: presetSlugs("basico") });
     setNovoFull(false);
     await load();
   }
@@ -524,7 +524,12 @@ export default function AdminPage() {
             </div>
             <div className="flex flex-col">
               <label className="mb-1 text-xs font-semibold text-gray-500">Tipo</label>
-              <select className={input} value={novo.role} onChange={(e) => setNovo({ ...novo, role: e.target.value })}>
+              <select className={input} value={novo.role} onChange={(e) => {
+                const role = e.target.value;
+                // Comum já vem com o preset Básico; Admin tem acesso a tudo.
+                setNovo((n) => ({ ...n, role, tools: role === "comum" && n.tools.length === 0 ? presetSlugs("basico") : n.tools }));
+                if (role === "admin") setNovoFull(true); else setNovoFull(false);
+              }}>
                 <option value="comum">Comum</option>
                 <option value="admin">Admin</option>
               </select>
@@ -1149,7 +1154,11 @@ export default function AdminPage() {
           <div className="grid grid-cols-2 gap-4">
             <label className="text-sm">
               <span className="mb-1 block font-medium text-gray-700">Tipo</span>
-              <select className={`${input} w-full`} value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}>
+              <select className={`${input} w-full`} value={editForm.role} onChange={(e) => {
+                const role = e.target.value;
+                // Ao tornar Comum, se ainda não tem ferramentas escolhidas, sugere o preset Básico.
+                setEditForm((f) => ({ ...f, role, tools: role === "comum" && !f.fullAccess && f.tools.length === 0 ? presetSlugs("basico") : f.tools }));
+              }}>
                 <option value="comum">Comum</option>
                 <option value="admin">Admin</option>
               </select>
@@ -1178,10 +1187,20 @@ export default function AdminPage() {
         {editForm.role !== "admin" && (
           <div className="mt-5 border-t border-gray-100 pt-4">
             <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-              <input type="checkbox" checked={editForm.fullAccess} onChange={(e) => setEditForm({ ...editForm, fullAccess: e.target.checked })} />
+              <input
+                type="checkbox"
+                checked={editForm.fullAccess}
+                onChange={(e) => {
+                  const full = e.target.checked;
+                  // Ao destravar (desmarcar), começa de TODAS para ir removendo.
+                  setEditForm((f) => ({ ...f, fullAccess: full, tools: full ? f.tools : (f.tools.length ? f.tools : TOOLS.map((t) => t.slug)) }));
+                }}
+              />
               Acesso total a todas as ferramentas
             </label>
-            {!editForm.fullAccess && (
+            {editForm.fullAccess ? (
+              <p className="text-xs text-gray-400">Este usuário pode usar todas as ferramentas. Desmarque para escolher/remover ferramentas específicas.</p>
+            ) : (
               <ToolPicker value={editForm.tools} onChange={(v) => setEditForm({ ...editForm, tools: v })} />
             )}
           </div>
